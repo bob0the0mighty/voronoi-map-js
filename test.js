@@ -5,7 +5,14 @@
 
 'use strict';
 
-module.exports = {
-    MIN_VALUE : 5 * Math.pow(10, -324),
-    MAX_VALUE : 1.7976931348623157 * Math.pow(10, 308)
-};
+var glob = require('glob');
+var nodeunit = require('nodeunit');
+var reporter = nodeunit.reporters.default;
+
+var pattern = process.argv.length === 3 ? process.argv[2] : '';
+
+glob('src/**/*' + pattern + '*_test.js', function (er, files) {
+    reporter.run(files, null, function () {
+        process.exit();
+    });
+});

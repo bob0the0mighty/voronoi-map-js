@@ -5,7 +5,14 @@
 
 'use strict';
 
-module.exports = {
-    MIN_VALUE : 5 * Math.pow(10, -324),
-    MAX_VALUE : 1.7976931348623157 * Math.pow(10, 308)
+module.exports = function () {
+    return {
+        index: 0,
+        d0: null,  // Delaunay edge
+        d1: null,  // Delaunay edge
+        v0: null,  // Voronoi edge
+        v1: null,  // Voronoi edge
+        midpoint: null,  // halfway between v0,v1
+        river: 0  // volume of water, or 0
+    };
 };

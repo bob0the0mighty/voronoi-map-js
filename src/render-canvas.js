@@ -1,12 +1,18 @@
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: true, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
+
 'use strict';
 
 var _ = require('lodash');
-var colorModule = require('../janicek/html-color');
-var convert = require('../as3/conversion-core');
-var core = require('../janicek/core');
-var matrix = require('../as3/matrix');
-var pointCore = require('../as3/point-core');
-var vector3d = require('../as3/vector-3d');
+var canvasCore = require('./janicek/canvas');
+var colorModule = require('./janicek/html-color');
+var convert = require('./as3/conversion-core');
+var core = require('./janicek/core');
+var matrix = require('./as3/matrix');
+var pointCore = require('./as3/point-core');
+var vector3d = require('./as3/vector-3d');
 
 exports.graphicsReset = function (c, mapWidth, mapHeight, displayColors) {
     c.lineWidth = 1.0;
@@ -15,44 +21,6 @@ exports.graphicsReset = function (c, mapWidth, mapHeight, displayColors) {
     c.fillRect(0, 0, 2000, 2000);
     c.fillStyle = colorModule.intToHexColor(displayColors.OCEAN);
     c.fillRect(0, 0, core.toInt(mapWidth), core.toInt(mapHeight));
-};
-
-var lightVector = vector3d(-1, -1, 0);
-
-exports.calculateLighting = function (p, r, s) {
-    var A = vector3d(p.point.x, p.point.y, p.elevation);
-    var B = vector3d(r.point.x, r.point.y, r.elevation);
-    var C = vector3d(s.point.x, s.point.y, s.elevation);
-    var normal = B.subtract(A).crossProduct(C.subtract(A));
-    if (normal.z < 0) { normal.scaleBy(-1); }
-    normal.normalize();
-    var light = 0.5 + 35 * normal.dotProduct(lightVector);
-    if (light < 0) { light = 0; }
-    if (light > 1) { light = 1; }
-    return light;
-};
-
-exports.colorWithSlope = function (color, p, q, edge, displayColors) {
-    var r = edge.v0;
-    var s = edge.v1;
-    if (_.isNull(r) || _.isNull(s)) {
-        // Edge of the map
-        return displayColors.OCEAN;
-    } else if (p.water) {
-        return color;
-    }
-
-    if (q !== null && p.water === q.water) {
-        color = colorModule.interpolateColor(color, displayColors[q.biome], 0.4);
-    }
-    var colorLow = colorModule.interpolateColor(color, 0x333333, 0.7);
-    var colorHigh = colorModule.interpolateColor(color, 0xffffff, 0.3);
-    var light = exports.calculateLighting(p, r, s);
-    if (light < 0.5) {
-        return colorModule.interpolateColor(colorLow, color, light * 2);
-    } else {
-        return colorModule.interpolateColor(color, colorHigh, light * 2 - 1);
-    }
 };
 
 exports.colorWithSmoothColors = function (color, p, q, edge, displayColors) {
@@ -125,19 +93,17 @@ exports.renderDebugPolygons = function (context, map, displayColors) {
         context.globalAlpha = 1.0;
         _(p.corners).each(function (q) {
             context.fillStyle = q.water ? '#0000ff' : '#009900';
-            context.fillRect(core.toInt(q.point.x - 0.7), core.toInt(q.point.y - 0.7), core.toInt(1.5), core.toInt(1.5));
+            context.fillRect(q.point.x - 0.7, q.point.y - 0.7, 1.5, 1.5);
         });
     });
 };
 
-/**
- * Render the paths from each polygon to the ocean, showing watersheds.
- */
+// Render the paths from each polygon to the ocean, showing watersheds.
 exports.renderWatersheds = function (graphics, map, watersheds) {
     var edge, w0, w1;
 
     _(map.edges).each(function (edge) {
-        if (!_.isNull(edge.d0) && !_.isNull(edge.d1) && !_.isNull(edge.v0) && !_.isNull(edge.v1) && !edge.d0.ocean && !edge.d1.ocean) {
+        if (edge.d0 && edge.d1 && edge.v0 && edge.v1 && !edge.d0.ocean && !edge.d1.ocean) {
             w0 = watersheds.watersheds[edge.d0.index];
             w1 = watersheds.watersheds[edge.d1.index];
             if (w0 !== w1) {
@@ -174,11 +140,9 @@ function drawPathForwards(graphics, path) {
     }
 }
 
-/**
- * Helper function for drawing triangles with gradients. This
- * function sets up the fill on the graphics object, and then
- * calls fillFunction to draw the desired path.
- */
+// Helper function for drawing triangles with gradients. This
+// function sets up the fill on the graphics object, and then
+// calls fillFunction to draw the desired path.
 function drawGradientTriangle(graphics, v1, v2, v3, colors, fillFunction, fillX, fillY) {
     var m = matrix();
 
@@ -228,9 +192,7 @@ function drawGradientTriangle(graphics, v1, v2, v3, colors, fillFunction, fillX,
     graphics.fill(); //graphics.endFill();
 }
 
-/**
- * Render the interior of polygons
- */
+// Render the interior of polygons
 exports.renderPolygons = function (graphics, colors, gradientFillProperty, colorOverrideFunction, map, noisyEdges)  {
     // My Voronoi polygon rendering doesn't handle the boundary
     // polygons, so I just fill everything with ocean first.
@@ -311,15 +273,13 @@ exports.renderPolygons = function (graphics, colors, gradientFillProperty, color
     }
 };
 
-/**
- * Render bridges across every narrow river edge. Bridges are
- * straight line segments perpendicular to the edge. Bridges are
- * drawn after rivers. TODO: sometimes the bridges aren't long
- * enough to cross the entire noisy line river. TODO: bridges
- * don't line up with curved road segments when there are
- * roads. It might be worth making a shader that draws the bridge
- * only when there's water underneath.
- */
+// Render bridges across every narrow river edge. Bridges are
+// straight line segments perpendicular to the edge. Bridges are
+// drawn after rivers. TODO: sometimes the bridges aren't long
+// enough to cross the entire noisy line river. TODO: bridges
+// don't line up with curved road segments when there are
+// roads. It might be worth making a shader that draws the bridge
+// only when there's water underneath.
 exports.renderBridges = function (graphics, map, roads, colors) {
     _(map.edges).each(function (edge) {
         if (edge.river > 0 && edge.river < 4 &&
@@ -340,19 +300,15 @@ exports.renderBridges = function (graphics, map, roads, colors) {
     });
 };
 
-/**
- * Render roads. We draw these before polygon edges, so that rivers overwrite roads.
- */
+// Render roads. We draw these before polygon edges, so that rivers overwrite roads.
 exports.renderRoads = function (graphics, map, roads, colors) {
     // First draw the roads, because any other feature should draw
     // over them. Also, roads don't use the noisy lines.
     var A, B, C;
     var i, j, d, edge1, edge2, edges;
 
-    /**
-     * Helper function: find the normal vector across edge 'e' and
-     * make sure to point it in a direction towards 'c'.
-     */
+    // Helper function: find the normal vector across edge 'e' and
+    // make sure to point it in a direction towards 'c'.
     function normalTowards(e, c, len) {
         // Rotate the v0-->v1 vector by 90 degrees:
         var n = { x: -(e.v1.point.y - e.v0.point.y), y: e.v1.point.x - e.v0.point.x };
@@ -433,11 +389,9 @@ function drawPathBackwards(graphics, path) {
     }
 }
 
-/**
- * Render the exterior of polygons: coastlines, lake shores,
- * rivers, lava fissures. We draw all of these after the polygons
- * so that polygons don't overwrite any edges.
- */
+// Render the exterior of polygons: coastlines, lake shores,
+// rivers, lava fissures. We draw all of these after the polygons
+// so that polygons don't overwrite any edges.
 exports.renderEdges = function (graphics, colors, map, noisyEdges, lava, renderRivers) {
     renderRivers = core.def(renderRivers, true);
     var edge;
@@ -484,11 +438,13 @@ exports.renderEdges = function (graphics, colors, map, noisyEdges, lava, renderR
     }
 };
 
-exports.renderAllEdges = function (graphics, strokeStyle, map, noisyEdges) {
+exports.renderAllEdges = function (graphics, color, alpha, map, noisyEdges) {
     var edge;
 
     graphics.lineWidth = 5;
-    graphics.strokeStyle = strokeStyle;
+    graphics.strokeStyle = colorModule.intToHexColor(color);
+    var savedGlobalAlpha = graphics.globalAlpha;
+    graphics.globalAlpha = alpha;
 
     for (var centerIndex = 0; centerIndex < map.centers.length; centerIndex++) {
         var p = map.centers[centerIndex];
@@ -511,4 +467,10 @@ exports.renderAllEdges = function (graphics, strokeStyle, map, noisyEdges) {
             graphics.closePath();
         }
     }
+
+    graphics.globalAlpha = savedGlobalAlpha;
+};
+
+exports.addNoise = function (context) {
+    canvasCore.addNoiseToCanvas(context, 666, 10, true);
 };

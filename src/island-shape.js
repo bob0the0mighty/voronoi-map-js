@@ -1,4 +1,7 @@
-/* jshint bitwise:false */
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: false, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
 
 /**
  * Factory class to build the 'inside' function that tells us whether
@@ -13,12 +16,12 @@
 
 'use strict';
 
-var array2d = require('../janicek/array2d');
-var core = require('../janicek/core');
-var distanceFromOrigin = require('../as3/point-core').distanceFromOrigin;
-var perlinNoise = require('../janicek/perlin-noise');
-var prngModule = require('../polygonal/pm-prng');
-var prng = require('../janicek/pseudo-random-number-generators');
+var array2d = require('./janicek/array2d');
+var core = require('./janicek/core');
+var distanceFromOrigin = require('./as3/point-core').distanceFromOrigin;
+var perlinNoise = require('./janicek/perlin-noise');
+var prngModule = require('./polygonal/pm-prng');
+var prng = require('./janicek/pseudo-random-number-generators');
 
 /**
 * The radial island radius is based on overlapping sine waves 

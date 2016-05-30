@@ -1,7 +1,8 @@
-;(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-var global=self;/**
+(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+(function (global){
+/**
  * @license
- * Lo-Dash 2.2.1 (Custom Build) <http://lodash.com/>
+ * Lo-Dash 2.4.1 (Custom Build) <http://lodash.com/>
  * Build: `lodash modern -o ./dist/lodash.js`
  * Copyright 2012-2013 The Dojo Foundation <http://dojofoundation.org/>
  * Based on Underscore.js 1.5.2 <http://underscorejs.org/LICENSE>
@@ -48,7 +49,7 @@ var global=self;/**
 
   /**
    * Used to match ES6 template delimiters
-   * http://people.mozilla.org/~jorendorff/es6-draft.html#sec-7.8.6
+   * http://people.mozilla.org/~jorendorff/es6-draft.html#sec-literals-string-literals
    */
   var reEsTemplate = /\$\{([^\\}]*(?:\\.[^\\}]*)*)\}/g;
 
@@ -56,7 +57,7 @@ var global=self;/**
   var reFlags = /\w*$/;
 
   /** Used to detected named functions */
-  var reFuncName = /^function[ \n\r\t]+\w/;
+  var reFuncName = /^\s*function[ \n\r\t]+\w/;
 
   /** Used to match "interpolate" template delimiters */
   var reInterpolate = /<%=([\s\S]+?)%>/g;
@@ -77,7 +78,7 @@ var global=self;/**
   var contextProps = [
     'Array', 'Boolean', 'Date', 'Function', 'Math', 'Number', 'Object',
     'RegExp', 'String', '_', 'attachEvent', 'clearTimeout', 'isFinite', 'isNaN',
-    'parseInt', 'setImmediate', 'setTimeout'
+    'parseInt', 'setTimeout'
   ];
 
   /** Used to make template sourceURLs easier to identify */
@@ -257,22 +258,29 @@ var global=self;/**
    */
   function compareAscending(a, b) {
     var ac = a.criteria,
-        bc = b.criteria;
+        bc = b.criteria,
+        index = -1,
+        length = ac.length;
 
-    // ensure a stable sort in V8 and other engines
-    // http://code.google.com/p/v8/issues/detail?id=90
-    if (ac !== bc) {
-      if (ac > bc || typeof ac == 'undefined') {
-        return 1;
-      }
-      if (ac < bc || typeof bc == 'undefined') {
-        return -1;
+    while (++index < length) {
+      var value = ac[index],
+          other = bc[index];
+
+      if (value !== other) {
+        if (value > other || typeof value == 'undefined') {
+          return 1;
+        }
+        if (value < other || typeof other == 'undefined') {
+          return -1;
+        }
       }
     }
-    // The JS engine embedded in Adobe applications like InDesign has a buggy
-    // `Array#sort` implementation that causes it, under certain circumstances,
-    // to return the same value for `a` and `b`.
-    // See https://github.com/jashkenas/underscore/pull/1247
+    // Fixes an `Array#sort` bug in the JS engine embedded in Adobe applications
+    // that causes it, under certain circumstances, to return the same value for
+    // `a` and `b`. See https://github.com/jashkenas/underscore/pull/1247
+    //
+    // This also ensures a stable sort in V8 and other engines.
+    // See http://code.google.com/p/v8/issues/detail?id=90
     return a.index - b.index;
   }
 
@@ -352,15 +360,6 @@ var global=self;/**
       'undefined': false,
       'value': null
     };
-  }
-
-  /**
-   * A no-operation function.
-   *
-   * @private
-   */
-  function noop() {
-    // no operation performed
   }
 
   /**
@@ -465,11 +464,14 @@ var global=self;/**
     /** Used to restore the original `_` reference in `noConflict` */
     var oldDash = context._;
 
+    /** Used to resolve the internal [[Class]] of values */
+    var toString = objectProto.toString;
+
     /** Used to detect if a method is native */
     var reNative = RegExp('^' +
-      String(objectProto.valueOf)
+      String(toString)
         .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        .replace(/valueOf|for [^\]]+/g, '.+?') + '$'
+        .replace(/toString| for [^\]]+/g, '.*?') + '$'
     );
 
     /** Native method shortcuts */
@@ -477,41 +479,34 @@ var global=self;/**
         clearTimeout = context.clearTimeout,
         floor = Math.floor,
         fnToString = Function.prototype.toString,
-        getPrototypeOf = reNative.test(getPrototypeOf = Object.getPrototypeOf) && getPrototypeOf,
+        getPrototypeOf = isNative(getPrototypeOf = Object.getPrototypeOf) && getPrototypeOf,
         hasOwnProperty = objectProto.hasOwnProperty,
-        now = reNative.test(now = Date.now) && now || function() { return +new Date; },
         push = arrayRef.push,
-        setImmediate = context.setImmediate,
         setTimeout = context.setTimeout,
         splice = arrayRef.splice,
-        toString = objectProto.toString,
         unshift = arrayRef.unshift;
 
+    /** Used to set meta data on functions */
     var defineProperty = (function() {
+      // IE 8 only accepts DOM elements
       try {
         var o = {},
-            func = reNative.test(func = Object.defineProperty) && func,
+            func = isNative(func = Object.defineProperty) && func,
             result = func(o, o, o) && func;
       } catch(e) { }
       return result;
     }());
 
     /* Native method shortcuts for methods with the same name as other `lodash` methods */
-    var nativeBind = reNative.test(nativeBind = toString.bind) && nativeBind,
-        nativeCreate = reNative.test(nativeCreate = Object.create) && nativeCreate,
-        nativeIsArray = reNative.test(nativeIsArray = Array.isArray) && nativeIsArray,
+    var nativeCreate = isNative(nativeCreate = Object.create) && nativeCreate,
+        nativeIsArray = isNative(nativeIsArray = Array.isArray) && nativeIsArray,
         nativeIsFinite = context.isFinite,
         nativeIsNaN = context.isNaN,
-        nativeKeys = reNative.test(nativeKeys = Object.keys) && nativeKeys,
+        nativeKeys = isNative(nativeKeys = Object.keys) && nativeKeys,
         nativeMax = Math.max,
         nativeMin = Math.min,
         nativeParseInt = context.parseInt,
-        nativeRandom = Math.random,
-        nativeSlice = arrayRef.slice;
-
-    /** Detect various environments */
-    var isIeOpera = reNative.test(context.attachEvent),
-        isV8 = nativeBind && !/\n|true/.test(nativeBind + isIeOpera);
+        nativeRandom = Math.random;
 
     /** Used to lookup a built-in constructor by [[Class]] */
     var ctorByClass = {};
@@ -539,15 +534,16 @@ var global=self;/**
      *
      * The chainable wrapper functions are:
      * `after`, `assign`, `bind`, `bindAll`, `bindKey`, `chain`, `compact`,
-     * `compose`, `concat`, `countBy`, `createCallback`, `curry`, `debounce`,
-     * `defaults`, `defer`, `delay`, `difference`, `filter`, `flatten`, `forEach`,
-     * `forEachRight`, `forIn`, `forInRight`, `forOwn`, `forOwnRight`, `functions`,
-     * `groupBy`, `indexBy`, `initial`, `intersection`, `invert`, `invoke`, `keys`,
-     * `map`, `max`, `memoize`, `merge`, `min`, `object`, `omit`, `once`, `pairs`,
-     * `partial`, `partialRight`, `pick`, `pluck`, `pull`, `push`, `range`, `reject`,
-     * `remove`, `rest`, `reverse`, `shuffle`, `slice`, `sort`, `sortBy`, `splice`,
-     * `tap`, `throttle`, `times`, `toArray`, `transform`, `union`, `uniq`, `unshift`,
-     * `unzip`, `values`, `where`, `without`, `wrap`, and `zip`
+     * `compose`, `concat`, `countBy`, `create`, `createCallback`, `curry`,
+     * `debounce`, `defaults`, `defer`, `delay`, `difference`, `filter`, `flatten`,
+     * `forEach`, `forEachRight`, `forIn`, `forInRight`, `forOwn`, `forOwnRight`,
+     * `functions`, `groupBy`, `indexBy`, `initial`, `intersection`, `invert`,
+     * `invoke`, `keys`, `map`, `max`, `memoize`, `merge`, `min`, `object`, `omit`,
+     * `once`, `pairs`, `partial`, `partialRight`, `pick`, `pluck`, `pull`, `push`,
+     * `range`, `reject`, `remove`, `rest`, `reverse`, `shuffle`, `slice`, `sort`,
+     * `sortBy`, `splice`, `tap`, `throttle`, `times`, `toArray`, `transform`,
+     * `union`, `uniq`, `unshift`, `unzip`, `values`, `where`, `without`, `wrap`,
+     * and `zip`
      *
      * The non-chainable wrapper functions are:
      * `clone`, `cloneDeep`, `contains`, `escape`, `every`, `find`, `findIndex`,
@@ -622,21 +618,13 @@ var global=self;/**
     var support = lodash.support = {};
 
     /**
-     * Detect if `Function#bind` exists and is inferred to be fast (all but V8).
-     *
-     * @memberOf _.support
-     * @type boolean
-     */
-    support.fastBind = nativeBind && !isV8;
-
-    /**
      * Detect if functions can be decompiled by `Function#toString`
      * (all but PS3 and older Opera mobile browsers & avoided in Windows 8 apps).
      *
      * @memberOf _.support
      * @type boolean
      */
-    support.funcDecomp = !reNative.test(context.WinRTError) && reThis.test(runInContext);
+    support.funcDecomp = !isNative(context.WinRTError) && reThis.test(runInContext);
 
     /**
      * Detect if `Function#name` is supported (all but IE).
@@ -710,18 +698,55 @@ var global=self;/**
     /*--------------------------------------------------------------------------*/
 
     /**
+     * The base implementation of `_.bind` that creates the bound function and
+     * sets its meta data.
+     *
+     * @private
+     * @param {Array} bindData The bind data array.
+     * @returns {Function} Returns the new bound function.
+     */
+    function baseBind(bindData) {
+      var func = bindData[0],
+          partialArgs = bindData[2],
+          thisArg = bindData[4];
+
+      function bound() {
+        // `Function#bind` spec
+        // http://es5.github.io/#x15.3.4.5
+        if (partialArgs) {
+          // avoid `arguments` object deoptimizations by using `slice` instead
+          // of `Array.prototype.slice.call` and not assigning `arguments` to a
+          // variable as a ternary expression
+          var args = slice(partialArgs);
+          push.apply(args, arguments);
+        }
+        // mimic the constructor's `return` behavior
+        // http://es5.github.io/#x13.2.2
+        if (this instanceof bound) {
+          // ensure `new bound` is an instance of `func`
+          var thisBinding = baseCreate(func.prototype),
+              result = func.apply(thisBinding, args || arguments);
+          return isObject(result) ? result : thisBinding;
+        }
+        return func.apply(thisArg, args || arguments);
+      }
+      setBindData(bound, bindData);
+      return bound;
+    }
+
+    /**
      * The base implementation of `_.clone` without argument juggling or support
      * for `thisArg` binding.
      *
      * @private
      * @param {*} value The value to clone.
-     * @param {boolean} [deep=false] Specify a deep clone.
+     * @param {boolean} [isDeep=false] Specify a deep clone.
      * @param {Function} [callback] The function to customize cloning values.
      * @param {Array} [stackA=[]] Tracks traversed source objects.
      * @param {Array} [stackB=[]] Associates clones with source counterparts.
      * @returns {*} Returns the cloned value.
      */
-    function baseClone(value, deep, callback, stackA, stackB) {
+    function baseClone(value, isDeep, callback, stackA, stackB) {
       if (callback) {
         var result = callback(value);
         if (typeof result != 'undefined') {
@@ -754,7 +779,7 @@ var global=self;/**
         return value;
       }
       var isArr = isArray(value);
-      if (deep) {
+      if (isDeep) {
         // check for circular references and return corresponding clone
         var initedStack = !stackA;
         stackA || (stackA = getArray());
@@ -781,7 +806,7 @@ var global=self;/**
         }
       }
       // exit for shallow clone
-      if (!deep) {
+      if (!isDeep) {
         return result;
       }
       // add the source value to the stack of traversed objects
@@ -791,7 +816,7 @@ var global=self;/**
 
       // recursively populate clone (susceptible to call stack limits)
       (isArr ? forEach : forOwn)(value, function(objValue, key) {
-        result[key] = baseClone(objValue, deep, callback, stackA, stackB);
+        result[key] = baseClone(objValue, isDeep, callback, stackA, stackB);
       });
 
       if (initedStack) {
@@ -799,6 +824,32 @@ var global=self;/**
         releaseArray(stackB);
       }
       return result;
+    }
+
+    /**
+     * The base implementation of `_.create` without support for assigning
+     * properties to the created object.
+     *
+     * @private
+     * @param {Object} prototype The object to inherit from.
+     * @returns {Object} Returns the new object.
+     */
+    function baseCreate(prototype, properties) {
+      return isObject(prototype) ? nativeCreate(prototype) : {};
+    }
+    // fallback for browsers without `Object.create`
+    if (!nativeCreate) {
+      baseCreate = (function() {
+        function Object() {}
+        return function(prototype) {
+          if (isObject(prototype)) {
+            Object.prototype = prototype;
+            var result = new Object;
+            Object.prototype = null;
+          }
+          return result || context.Object();
+        };
+      }());
     }
 
     /**
@@ -815,24 +866,30 @@ var global=self;/**
       if (typeof func != 'function') {
         return identity;
       }
-      // exit early if there is no `thisArg`
-      if (typeof thisArg == 'undefined') {
+      // exit early for no `thisArg` or already bound by `Function#bind`
+      if (typeof thisArg == 'undefined' || !('prototype' in func)) {
         return func;
       }
-      var bindData = func.__bindData__ || (support.funcNames && !func.name);
+      var bindData = func.__bindData__;
       if (typeof bindData == 'undefined') {
-        var source = reThis && fnToString.call(func);
-        if (!support.funcNames && source && !reFuncName.test(source)) {
-          bindData = true;
+        if (support.funcNames) {
+          bindData = !func.name;
         }
-        if (support.funcNames || !bindData) {
-          // checks if `func` references the `this` keyword and stores the result
-          bindData = !support.funcDecomp || reThis.test(source);
-          setBindData(func, bindData);
+        bindData = bindData || !support.funcDecomp;
+        if (!bindData) {
+          var source = fnToString.call(func);
+          if (!support.funcNames) {
+            bindData = !reFuncName.test(source);
+          }
+          if (!bindData) {
+            // checks if `func` references the `this` keyword and stores the result
+            bindData = reThis.test(source);
+            setBindData(func, bindData);
+          }
         }
       }
       // exit early if there are no `this` references or `func` is bound
-      if (bindData !== true && (bindData && bindData[1] & 1)) {
+      if (bindData === false || (bindData !== true && bindData[1] & 1)) {
         return func;
       }
       switch (argCount) {
@@ -853,17 +910,107 @@ var global=self;/**
     }
 
     /**
+     * The base implementation of `createWrapper` that creates the wrapper and
+     * sets its meta data.
+     *
+     * @private
+     * @param {Array} bindData The bind data array.
+     * @returns {Function} Returns the new function.
+     */
+    function baseCreateWrapper(bindData) {
+      var func = bindData[0],
+          bitmask = bindData[1],
+          partialArgs = bindData[2],
+          partialRightArgs = bindData[3],
+          thisArg = bindData[4],
+          arity = bindData[5];
+
+      var isBind = bitmask & 1,
+          isBindKey = bitmask & 2,
+          isCurry = bitmask & 4,
+          isCurryBound = bitmask & 8,
+          key = func;
+
+      function bound() {
+        var thisBinding = isBind ? thisArg : this;
+        if (partialArgs) {
+          var args = slice(partialArgs);
+          push.apply(args, arguments);
+        }
+        if (partialRightArgs || isCurry) {
+          args || (args = slice(arguments));
+          if (partialRightArgs) {
+            push.apply(args, partialRightArgs);
+          }
+          if (isCurry && args.length < arity) {
+            bitmask |= 16 & ~32;
+            return baseCreateWrapper([func, (isCurryBound ? bitmask : bitmask & ~3), args, null, thisArg, arity]);
+          }
+        }
+        args || (args = arguments);
+        if (isBindKey) {
+          func = thisBinding[key];
+        }
+        if (this instanceof bound) {
+          thisBinding = baseCreate(func.prototype);
+          var result = func.apply(thisBinding, args);
+          return isObject(result) ? result : thisBinding;
+        }
+        return func.apply(thisBinding, args);
+      }
+      setBindData(bound, bindData);
+      return bound;
+    }
+
+    /**
+     * The base implementation of `_.difference` that accepts a single array
+     * of values to exclude.
+     *
+     * @private
+     * @param {Array} array The array to process.
+     * @param {Array} [values] The array of values to exclude.
+     * @returns {Array} Returns a new array of filtered values.
+     */
+    function baseDifference(array, values) {
+      var index = -1,
+          indexOf = getIndexOf(),
+          length = array ? array.length : 0,
+          isLarge = length >= largeArraySize && indexOf === baseIndexOf,
+          result = [];
+
+      if (isLarge) {
+        var cache = createCache(values);
+        if (cache) {
+          indexOf = cacheIndexOf;
+          values = cache;
+        } else {
+          isLarge = false;
+        }
+      }
+      while (++index < length) {
+        var value = array[index];
+        if (indexOf(values, value) < 0) {
+          result.push(value);
+        }
+      }
+      if (isLarge) {
+        releaseObject(values);
+      }
+      return result;
+    }
+
+    /**
      * The base implementation of `_.flatten` without support for callback
      * shorthands or `thisArg` binding.
      *
      * @private
      * @param {Array} array The array to flatten.
      * @param {boolean} [isShallow=false] A flag to restrict flattening to a single level.
-     * @param {boolean} [isArgArrays=false] A flag to restrict flattening to arrays and `arguments` objects.
+     * @param {boolean} [isStrict=false] A flag to restrict flattening to arrays and `arguments` objects.
      * @param {number} [fromIndex=0] The index to start from.
      * @returns {Array} Returns a new flattened array.
      */
-    function baseFlatten(array, isShallow, isArgArrays, fromIndex) {
+    function baseFlatten(array, isShallow, isStrict, fromIndex) {
       var index = (fromIndex || 0) - 1,
           length = array ? array.length : 0,
           result = [];
@@ -875,7 +1022,7 @@ var global=self;/**
             && (isArray(value) || isArguments(value))) {
           // recursively flatten arrays (susceptible to call stack limits)
           if (!isShallow) {
-            value = baseFlatten(value, isShallow, isArgArrays);
+            value = baseFlatten(value, isShallow, isStrict);
           }
           var valIndex = -1,
               valLength = value.length,
@@ -885,7 +1032,7 @@ var global=self;/**
           while (++valIndex < valLength) {
             result[resIndex++] = value[valIndex];
           }
-        } else if (!isArgArrays) {
+        } else if (!isStrict) {
           result.push(value);
         }
       }
@@ -968,8 +1115,11 @@ var global=self;/**
       var isArr = className == arrayClass;
       if (!isArr) {
         // unwrap any `lodash` wrapped values
-        if (hasOwnProperty.call(a, '__wrapped__ ') || hasOwnProperty.call(b, '__wrapped__')) {
-          return baseIsEqual(a.__wrapped__ || a, b.__wrapped__ || b, callback, isWhere, stackA, stackB);
+        var aWrapped = hasOwnProperty.call(a, '__wrapped__'),
+            bWrapped = hasOwnProperty.call(b, '__wrapped__');
+
+        if (aWrapped || bWrapped) {
+          return baseIsEqual(aWrapped ? a.__wrapped__ : a, bWrapped ? b.__wrapped__ : b, callback, isWhere, stackA, stackB);
         }
         // exit for functions and DOM nodes
         if (className != objectClass) {
@@ -980,10 +1130,10 @@ var global=self;/**
             ctorB = b.constructor;
 
         // non `Object` object instances with different constructors are not equal
-        if (ctorA != ctorB && !(
-              isFunction(ctorA) && ctorA instanceof ctorA &&
-              isFunction(ctorB) && ctorB instanceof ctorB
-            )) {
+        if (ctorA != ctorB &&
+              !(isFunction(ctorA) && ctorA instanceof ctorA && isFunction(ctorB) && ctorB instanceof ctorB) &&
+              ('constructor' in a && 'constructor' in b)
+            ) {
           return false;
         }
       }
@@ -1009,51 +1159,54 @@ var global=self;/**
 
       // recursively compare objects and arrays (susceptible to call stack limits)
       if (isArr) {
+        // compare lengths to determine if a deep comparison is necessary
         length = a.length;
         size = b.length;
+        result = size == length;
 
-        // compare lengths to determine if a deep comparison is necessary
-        result = size == a.length;
-        if (!result && !isWhere) {
-          return result;
-        }
-        // deep compare the contents, ignoring non-numeric properties
-        while (size--) {
-          var index = length,
-              value = b[size];
+        if (result || isWhere) {
+          // deep compare the contents, ignoring non-numeric properties
+          while (size--) {
+            var index = length,
+                value = b[size];
 
-          if (isWhere) {
-            while (index--) {
-              if ((result = baseIsEqual(a[index], value, callback, isWhere, stackA, stackB))) {
-                break;
+            if (isWhere) {
+              while (index--) {
+                if ((result = baseIsEqual(a[index], value, callback, isWhere, stackA, stackB))) {
+                  break;
+                }
               }
+            } else if (!(result = baseIsEqual(a[size], value, callback, isWhere, stackA, stackB))) {
+              break;
             }
-          } else if (!(result = baseIsEqual(a[size], value, callback, isWhere, stackA, stackB))) {
-            break;
           }
         }
-        return result;
       }
-      // deep compare objects using `forIn`, instead of `forOwn`, to avoid `Object.keys`
-      // which, in this case, is more costly
-      forIn(b, function(value, key, b) {
-        if (hasOwnProperty.call(b, key)) {
-          // count the number of properties.
-          size++;
-          // deep compare each property value.
-          return (result = hasOwnProperty.call(a, key) && baseIsEqual(a[key], value, callback, isWhere, stackA, stackB));
-        }
-      });
-
-      if (result && !isWhere) {
-        // ensure both objects have the same number of properties
-        forIn(a, function(value, key, a) {
-          if (hasOwnProperty.call(a, key)) {
-            // `size` will be `-1` if `a` has more properties than `b`
-            return (result = --size > -1);
+      else {
+        // deep compare objects using `forIn`, instead of `forOwn`, to avoid `Object.keys`
+        // which, in this case, is more costly
+        forIn(b, function(value, key, b) {
+          if (hasOwnProperty.call(b, key)) {
+            // count the number of properties.
+            size++;
+            // deep compare each property value.
+            return (result = hasOwnProperty.call(a, key) && baseIsEqual(a[key], value, callback, isWhere, stackA, stackB));
           }
         });
+
+        if (result && !isWhere) {
+          // ensure both objects have the same number of properties
+          forIn(a, function(value, key, a) {
+            if (hasOwnProperty.call(a, key)) {
+              // `size` will be `-1` if `a` has more properties than `b`
+              return (result = --size > -1);
+            }
+          });
+        }
       }
+      stackA.pop();
+      stackB.pop();
+
       if (initedStack) {
         releaseArray(stackA);
         releaseArray(stackB);
@@ -1127,6 +1280,19 @@ var global=self;/**
     }
 
     /**
+     * The base implementation of `_.random` without argument juggling or support
+     * for returning floating-point numbers.
+     *
+     * @private
+     * @param {number} min The minimum possible value.
+     * @param {number} max The maximum possible value.
+     * @returns {number} Returns a random number.
+     */
+    function baseRandom(min, max) {
+      return min + floor(nativeRandom() * (max - min + 1));
+    }
+
+    /**
      * The base implementation of `_.uniq` without support for callback shorthands
      * or `thisArg` binding.
      *
@@ -1147,13 +1313,8 @@ var global=self;/**
 
       if (isLarge) {
         var cache = createCache(seen);
-        if (cache) {
-          indexOf = cacheIndexOf;
-          seen = cache;
-        } else {
-          isLarge = false;
-          seen = callback ? seen : (releaseArray(seen), result);
-        }
+        indexOf = cacheIndexOf;
+        seen = cache;
       }
       while (++index < length) {
         var value = array[index],
@@ -1230,16 +1391,15 @@ var global=self;/**
      *  provided to the new function.
      * @param {*} [thisArg] The `this` binding of `func`.
      * @param {number} [arity] The arity of `func`.
-     * @returns {Function} Returns the new bound function.
+     * @returns {Function} Returns the new function.
      */
-    function createBound(func, bitmask, partialArgs, partialRightArgs, thisArg, arity) {
+    function createWrapper(func, bitmask, partialArgs, partialRightArgs, thisArg, arity) {
       var isBind = bitmask & 1,
           isBindKey = bitmask & 2,
           isCurry = bitmask & 4,
           isCurryBound = bitmask & 8,
           isPartial = bitmask & 16,
-          isPartialRight = bitmask & 32,
-          key = func;
+          isPartialRight = bitmask & 32;
 
       if (!isBindKey && !isFunction(func)) {
         throw new TypeError;
@@ -1253,96 +1413,42 @@ var global=self;/**
         isPartialRight = partialRightArgs = false;
       }
       var bindData = func && func.__bindData__;
-      if (bindData) {
+      if (bindData && bindData !== true) {
+        // clone `bindData`
+        bindData = slice(bindData);
+        if (bindData[2]) {
+          bindData[2] = slice(bindData[2]);
+        }
+        if (bindData[3]) {
+          bindData[3] = slice(bindData[3]);
+        }
+        // set `thisBinding` is not previously bound
         if (isBind && !(bindData[1] & 1)) {
           bindData[4] = thisArg;
         }
+        // set if previously bound but not currently (subsequent curried functions)
         if (!isBind && bindData[1] & 1) {
           bitmask |= 8;
         }
+        // set curried arity if not yet set
         if (isCurry && !(bindData[1] & 4)) {
           bindData[5] = arity;
         }
+        // append partial left arguments
         if (isPartial) {
           push.apply(bindData[2] || (bindData[2] = []), partialArgs);
         }
+        // append partial right arguments
         if (isPartialRight) {
-          push.apply(bindData[3] || (bindData[3] = []), partialRightArgs);
+          unshift.apply(bindData[3] || (bindData[3] = []), partialRightArgs);
         }
+        // merge flags
         bindData[1] |= bitmask;
-        return createBound.apply(null, bindData);
+        return createWrapper.apply(null, bindData);
       }
-      // use `Function#bind` if it exists and is fast
-      // (in V8 `Function#bind` is slower except when partially applied)
-      if (isBind && !(isBindKey || isCurry || isPartialRight) &&
-          (support.fastBind || (nativeBind && isPartial))) {
-        if (isPartial) {
-          var args = [thisArg];
-          push.apply(args, partialArgs);
-        }
-        var bound = isPartial
-          ? nativeBind.apply(func, args)
-          : nativeBind.call(func, thisArg);
-      }
-      else {
-        bound = function() {
-          // `Function#bind` spec
-          // http://es5.github.io/#x15.3.4.5
-          var args = arguments,
-              thisBinding = isBind ? thisArg : this;
-
-          if (isCurry || isPartial || isPartialRight) {
-            args = nativeSlice.call(args);
-            if (isPartial) {
-              unshift.apply(args, partialArgs);
-            }
-            if (isPartialRight) {
-              push.apply(args, partialRightArgs);
-            }
-            if (isCurry && args.length < arity) {
-              bitmask |= 16 & ~32;
-              return createBound(func, (isCurryBound ? bitmask : bitmask & ~3), args, null, thisArg, arity);
-            }
-          }
-          if (isBindKey) {
-            func = thisBinding[key];
-          }
-          if (this instanceof bound) {
-            // ensure `new bound` is an instance of `func`
-            thisBinding = createObject(func.prototype);
-
-            // mimic the constructor's `return` behavior
-            // http://es5.github.io/#x13.2.2
-            var result = func.apply(thisBinding, args);
-            return isObject(result) ? result : thisBinding;
-          }
-          return func.apply(thisBinding, args);
-        };
-      }
-      setBindData(bound, nativeSlice.call(arguments));
-      return bound;
-    }
-
-    /**
-     * Creates a new object with the specified `prototype`.
-     *
-     * @private
-     * @param {Object} prototype The prototype object.
-     * @returns {Object} Returns the new object.
-     */
-    function createObject(prototype) {
-      return isObject(prototype) ? nativeCreate(prototype) : {};
-    }
-    // fallback for browsers without `Object.create`
-    if (!nativeCreate) {
-      createObject = function(prototype) {
-        if (isObject(prototype)) {
-          noop.prototype = prototype;
-          var result = new noop;
-          noop.prototype = null;
-        }
-        return result || {};
-      };
+      // fast path for `_.bind`
+      var creater = (bitmask == 1 || bitmask === 17) ? baseBind : baseCreateWrapper;
+      return creater([func, bitmask, partialArgs, partialRightArgs, thisArg, arity]);
     }
 
     /**
@@ -1370,11 +1476,22 @@ var global=self;/**
     }
 
     /**
+     * Checks if `value` is a native function.
+     *
+     * @private
+     * @param {*} value The value to check.
+     * @returns {boolean} Returns `true` if the `value` is a native function, else `false`.
+     */
+    function isNative(value) {
+      return typeof value == 'function' && reNative.test(value);
+    }
+
+    /**
      * Sets `this` binding data on a given function.
      *
      * @private
      * @param {Function} func The function to set data on.
-     * @param {*} value The value to set.
+     * @param {Array} value The data array to set.
      */
     var setBindData = !defineProperty ? noop : function(func, value) {
       descriptor.value = value;
@@ -1550,16 +1667,16 @@ var global=self;/**
      * @returns {Object} Returns the destination object.
      * @example
      *
-     * _.assign({ 'name': 'moe' }, { 'age': 40 });
-     * // => { 'name': 'moe', 'age': 40 }
+     * _.assign({ 'name': 'fred' }, { 'employer': 'slate' });
+     * // => { 'name': 'fred', 'employer': 'slate' }
      *
      * var defaults = _.partialRight(_.assign, function(a, b) {
      *   return typeof a == 'undefined' ? b : a;
      * });
      *
-     * var food = { 'name': 'apple' };
-     * defaults(food, { 'name': 'banana', 'type': 'fruit' });
-     * // => { 'name': 'apple', 'type': 'fruit' }
+     * var object = { 'name': 'barney' };
+     * defaults(object, { 'name': 'fred', 'employer': 'slate' });
+     * // => { 'name': 'barney', 'employer': 'slate' }
      */
     var assign = function(object, source, guard) {
       var index, iterable = object, result = iterable;
@@ -1589,7 +1706,7 @@ var global=self;/**
     };
 
     /**
-     * Creates a clone of `value`. If `deep` is `true` nested objects will also
+     * Creates a clone of `value`. If `isDeep` is `true` nested objects will also
      * be cloned, otherwise they will be assigned by reference. If a callback
      * is provided it will be executed to produce the cloned values. If the
      * callback returns `undefined` cloning will be handled by the method instead.
@@ -1599,23 +1716,23 @@ var global=self;/**
      * @memberOf _
      * @category Objects
      * @param {*} value The value to clone.
-     * @param {boolean} [deep=false] Specify a deep clone.
+     * @param {boolean} [isDeep=false] Specify a deep clone.
      * @param {Function} [callback] The function to customize cloning values.
      * @param {*} [thisArg] The `this` binding of `callback`.
      * @returns {*} Returns the cloned value.
      * @example
      *
-     * var stooges = [
-     *   { 'name': 'moe', 'age': 40 },
-     *   { 'name': 'larry', 'age': 50 }
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36 },
+     *   { 'name': 'fred',   'age': 40 }
      * ];
      *
-     * var shallow = _.clone(stooges);
-     * shallow[0] === stooges[0];
+     * var shallow = _.clone(characters);
+     * shallow[0] === characters[0];
      * // => true
      *
-     * var deep = _.clone(stooges, true);
-     * deep[0] === stooges[0];
+     * var deep = _.clone(characters, true);
+     * deep[0] === characters[0];
      * // => false
      *
      * _.mixin({
@@ -1628,15 +1745,15 @@ var global=self;/**
      * clone.childNodes.length;
      * // => 0
      */
-    function clone(value, deep, callback, thisArg) {
+    function clone(value, isDeep, callback, thisArg) {
       // allows working with "Collections" methods without using their `index`
-      // and `collection` arguments for `deep` and `callback`
-      if (typeof deep != 'boolean' && deep != null) {
+      // and `collection` arguments for `isDeep` and `callback`
+      if (typeof isDeep != 'boolean' && isDeep != null) {
         thisArg = callback;
-        callback = deep;
-        deep = false;
+        callback = isDeep;
+        isDeep = false;
       }
-      return baseClone(value, deep, typeof callback == 'function' && baseCreateCallback(callback, thisArg, 1));
+      return baseClone(value, isDeep, typeof callback == 'function' && baseCreateCallback(callback, thisArg, 1));
     }
 
     /**
@@ -1659,13 +1776,13 @@ var global=self;/**
      * @returns {*} Returns the deep cloned value.
      * @example
      *
-     * var stooges = [
-     *   { 'name': 'moe', 'age': 40 },
-     *   { 'name': 'larry', 'age': 50 }
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36 },
+     *   { 'name': 'fred',   'age': 40 }
      * ];
      *
-     * var deep = _.cloneDeep(stooges);
-     * deep[0] === stooges[0];
+     * var deep = _.cloneDeep(characters);
+     * deep[0] === characters[0];
      * // => false
      *
      * var view = {
@@ -1685,6 +1802,42 @@ var global=self;/**
     }
 
     /**
+     * Creates an object that inherits from the given `prototype` object. If a
+     * `properties` object is provided its own enumerable properties are assigned
+     * to the created object.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {Object} prototype The object to inherit from.
+     * @param {Object} [properties] The properties to assign to the object.
+     * @returns {Object} Returns the new object.
+     * @example
+     *
+     * function Shape() {
+     *   this.x = 0;
+     *   this.y = 0;
+     * }
+     *
+     * function Circle() {
+     *   Shape.call(this);
+     * }
+     *
+     * Circle.prototype = _.create(Shape.prototype, { 'constructor': Circle });
+     *
+     * var circle = new Circle;
+     * circle instanceof Circle;
+     * // => true
+     *
+     * circle instanceof Shape;
+     * // => true
+     */
+    function create(prototype, properties) {
+      var result = baseCreate(prototype);
+      return properties ? assign(result, properties) : result;
+    }
+
+    /**
      * Assigns own enumerable properties of source object(s) to the destination
      * object for all destination properties that resolve to `undefined`. Once a
      * property is set, additional defaults of the same property will be ignored.
@@ -1700,9 +1853,9 @@ var global=self;/**
      * @returns {Object} Returns the destination object.
      * @example
      *
-     * var food = { 'name': 'apple' };
-     * _.defaults(food, { 'name': 'banana', 'type': 'fruit' });
-     * // => { 'name': 'apple', 'type': 'fruit' }
+     * var object = { 'name': 'barney' };
+     * _.defaults(object, { 'name': 'fred', 'employer': 'slate' });
+     * // => { 'name': 'barney', 'employer': 'slate' }
      */
     var defaults = function(object, source, guard) {
       var index, iterable = object, result = iterable;
@@ -1730,6 +1883,13 @@ var global=self;/**
      * This method is like `_.findIndex` except that it returns the key of the
      * first element that passes the callback check, instead of the element itself.
      *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
      * @static
      * @memberOf _
      * @category Objects
@@ -1741,10 +1901,24 @@ var global=self;/**
      * @returns {string|undefined} Returns the key of the found element, else `undefined`.
      * @example
      *
-     * _.findKey({ 'a': 1, 'b': 2, 'c': 3, 'd': 4 }, function(num) {
-     *   return num % 2 == 0;
+     * var characters = {
+     *   'barney': {  'age': 36, 'blocked': false },
+     *   'fred': {    'age': 40, 'blocked': true },
+     *   'pebbles': { 'age': 1,  'blocked': false }
+     * };
+     *
+     * _.findKey(characters, function(chr) {
+     *   return chr.age < 40;
      * });
-     * // => 'b' (property order is not guaranteed across environments)
+     * // => 'barney' (property order is not guaranteed across environments)
+     *
+     * // using "_.where" callback shorthand
+     * _.findKey(characters, { 'age': 1 });
+     * // => 'pebbles'
+     *
+     * // using "_.pluck" callback shorthand
+     * _.findKey(characters, 'blocked');
+     * // => 'fred'
      */
     function findKey(object, callback, thisArg) {
       var result;
@@ -1762,6 +1936,13 @@ var global=self;/**
      * This method is like `_.findKey` except that it iterates over elements
      * of a `collection` in the opposite order.
      *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
      * @static
      * @memberOf _
      * @category Objects
@@ -1773,10 +1954,24 @@ var global=self;/**
      * @returns {string|undefined} Returns the key of the found element, else `undefined`.
      * @example
      *
-     * _.findLastKey({ 'a': 1, 'b': 2, 'c': 3, 'd': 4 }, function(num) {
-     *   return num % 2 == 1;
+     * var characters = {
+     *   'barney': {  'age': 36, 'blocked': true },
+     *   'fred': {    'age': 40, 'blocked': false },
+     *   'pebbles': { 'age': 1,  'blocked': true }
+     * };
+     *
+     * _.findLastKey(characters, function(chr) {
+     *   return chr.age < 40;
      * });
-     * // => returns `c`, assuming `_.findKey` returns `a`
+     * // => returns `pebbles`, assuming `_.findKey` returns `barney`
+     *
+     * // using "_.where" callback shorthand
+     * _.findLastKey(characters, { 'age': 40 });
+     * // => 'fred'
+     *
+     * // using "_.pluck" callback shorthand
+     * _.findLastKey(characters, 'blocked');
+     * // => 'pebbles'
      */
     function findLastKey(object, callback, thisArg) {
       var result;
@@ -1806,18 +2001,20 @@ var global=self;/**
      * @returns {Object} Returns `object`.
      * @example
      *
-     * function Dog(name) {
-     *   this.name = name;
+     * function Shape() {
+     *   this.x = 0;
+     *   this.y = 0;
      * }
      *
-     * Dog.prototype.bark = function() {
-     *   console.log('Woof, woof!');
+     * Shape.prototype.move = function(x, y) {
+     *   this.x += x;
+     *   this.y += y;
      * };
      *
-     * _.forIn(new Dog('Dagny'), function(value, key) {
+     * _.forIn(new Shape, function(value, key) {
      *   console.log(key);
      * });
-     * // => logs 'bark' and 'name' (property order is not guaranteed across environments)
+     * // => logs 'x', 'y', and 'move' (property order is not guaranteed across environments)
      */
     var forIn = function(collection, callback, thisArg) {
       var index, iterable = collection, result = iterable;
@@ -1843,18 +2040,20 @@ var global=self;/**
      * @returns {Object} Returns `object`.
      * @example
      *
-     * function Dog(name) {
-     *   this.name = name;
+     * function Shape() {
+     *   this.x = 0;
+     *   this.y = 0;
      * }
      *
-     * Dog.prototype.bark = function() {
-     *   console.log('Woof, woof!');
+     * Shape.prototype.move = function(x, y) {
+     *   this.x += x;
+     *   this.y += y;
      * };
      *
-     * _.forInRight(new Dog('Dagny'), function(value, key) {
+     * _.forInRight(new Shape, function(value, key) {
      *   console.log(key);
      * });
-     * // => logs 'name' and 'bark' assuming `_.forIn ` logs 'bark' and 'name'
+     * // => logs 'move', 'y', and 'x' assuming `_.forIn ` logs 'x', 'y', and 'move'
      */
     function forInRight(object, callback, thisArg) {
       var pairs = [];
@@ -1968,22 +2167,22 @@ var global=self;/**
     }
 
     /**
-     * Checks if the specified object `property` exists and is a direct property,
+     * Checks if the specified property name exists as a direct property of `object`,
      * instead of an inherited property.
      *
      * @static
      * @memberOf _
      * @category Objects
-     * @param {Object} object The object to check.
-     * @param {string} property The property to check for.
+     * @param {Object} object The object to inspect.
+     * @param {string} key The name of the property to check.
      * @returns {boolean} Returns `true` if key is a direct property, else `false`.
      * @example
      *
      * _.has({ 'a': 1, 'b': 2, 'c': 3 }, 'b');
      * // => true
      */
-    function has(object, property) {
-      return object ? hasOwnProperty.call(object, property) : false;
+    function has(object, key) {
+      return object ? hasOwnProperty.call(object, key) : false;
     }
 
     /**
@@ -1996,8 +2195,8 @@ var global=self;/**
      * @returns {Object} Returns the created inverted object.
      * @example
      *
-     *  _.invert({ 'first': 'moe', 'second': 'larry' });
-     * // => { 'moe': 'first', 'larry': 'second' }
+     * _.invert({ 'first': 'fred', 'second': 'barney' });
+     * // => { 'fred': 'first', 'barney': 'second' }
      */
     function invert(object) {
       var index = -1,
@@ -2026,7 +2225,8 @@ var global=self;/**
      * // => false
      */
     function isBoolean(value) {
-      return value === true || value === false || toString.call(value) == boolClass;
+      return value === true || value === false ||
+        value && typeof value == 'object' && toString.call(value) == boolClass || false;
     }
 
     /**
@@ -2043,7 +2243,7 @@ var global=self;/**
      * // => true
      */
     function isDate(value) {
-      return value ? (typeof value == 'object' && toString.call(value) == dateClass) : false;
+      return value && typeof value == 'object' && toString.call(value) == dateClass || false;
     }
 
     /**
@@ -2060,7 +2260,7 @@ var global=self;/**
      * // => true
      */
     function isElement(value) {
-      return value ? value.nodeType === 1 : false;
+      return value && value.nodeType === 1 || false;
     }
 
     /**
@@ -2119,13 +2319,13 @@ var global=self;/**
      * @returns {boolean} Returns `true` if the values are equivalent, else `false`.
      * @example
      *
-     * var moe = { 'name': 'moe', 'age': 40 };
-     * var copy = { 'name': 'moe', 'age': 40 };
+     * var object = { 'name': 'fred' };
+     * var copy = { 'name': 'fred' };
      *
-     * moe == copy;
+     * object == copy;
      * // => false
      *
-     * _.isEqual(moe, copy);
+     * _.isEqual(object, copy);
      * // => true
      *
      * var words = ['hello', 'goodbye'];
@@ -2288,7 +2488,8 @@ var global=self;/**
      * // => true
      */
     function isNumber(value) {
-      return typeof value == 'number' || toString.call(value) == numberClass;
+      return typeof value == 'number' ||
+        value && typeof value == 'object' && toString.call(value) == numberClass || false;
     }
 
     /**
@@ -2301,26 +2502,26 @@ var global=self;/**
      * @returns {boolean} Returns `true` if `value` is a plain object, else `false`.
      * @example
      *
-     * function Stooge(name, age) {
-     *   this.name = name;
-     *   this.age = age;
+     * function Shape() {
+     *   this.x = 0;
+     *   this.y = 0;
      * }
      *
-     * _.isPlainObject(new Stooge('moe', 40));
+     * _.isPlainObject(new Shape);
      * // => false
      *
      * _.isPlainObject([1, 2, 3]);
      * // => false
      *
-     * _.isPlainObject({ 'name': 'moe', 'age': 40 });
+     * _.isPlainObject({ 'x': 0, 'y': 0 });
      * // => true
      */
-    var isPlainObject = function(value) {
+    var isPlainObject = !getPrototypeOf ? shimIsPlainObject : function(value) {
       if (!(value && toString.call(value) == objectClass)) {
         return false;
       }
       var valueOf = value.valueOf,
-          objProto = typeof valueOf == 'function' && (objProto = getPrototypeOf(valueOf)) && getPrototypeOf(objProto);
+          objProto = isNative(valueOf) && (objProto = getPrototypeOf(valueOf)) && getPrototypeOf(objProto);
 
       return objProto
         ? (value == objProto || getPrototypeOf(value) == objProto)
@@ -2337,11 +2538,11 @@ var global=self;/**
      * @returns {boolean} Returns `true` if the `value` is a regular expression, else `false`.
      * @example
      *
-     * _.isRegExp(/moe/);
+     * _.isRegExp(/fred/);
      * // => true
      */
     function isRegExp(value) {
-      return value ? (typeof value == 'object' && toString.call(value) == regexpClass) : false;
+      return value && typeof value == 'object' && toString.call(value) == regexpClass || false;
     }
 
     /**
@@ -2354,11 +2555,12 @@ var global=self;/**
      * @returns {boolean} Returns `true` if the `value` is a string, else `false`.
      * @example
      *
-     * _.isString('moe');
+     * _.isString('fred');
      * // => true
      */
     function isString(value) {
-      return typeof value == 'string' || toString.call(value) == stringClass;
+      return typeof value == 'string' ||
+        value && typeof value == 'object' && toString.call(value) == stringClass || false;
     }
 
     /**
@@ -2376,6 +2578,52 @@ var global=self;/**
      */
     function isUndefined(value) {
       return typeof value == 'undefined';
+    }
+
+    /**
+     * Creates an object with the same keys as `object` and values generated by
+     * running each own enumerable property of `object` through the callback.
+     * The callback is bound to `thisArg` and invoked with three arguments;
+     * (value, key, object).
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
+     * @static
+     * @memberOf _
+     * @category Objects
+     * @param {Object} object The object to iterate over.
+     * @param {Function|Object|string} [callback=identity] The function called
+     *  per iteration. If a property name or object is provided it will be used
+     *  to create a "_.pluck" or "_.where" style callback, respectively.
+     * @param {*} [thisArg] The `this` binding of `callback`.
+     * @returns {Array} Returns a new object with values of the results of each `callback` execution.
+     * @example
+     *
+     * _.mapValues({ 'a': 1, 'b': 2, 'c': 3} , function(num) { return num * 3; });
+     * // => { 'a': 3, 'b': 6, 'c': 9 }
+     *
+     * var characters = {
+     *   'fred': { 'name': 'fred', 'age': 40 },
+     *   'pebbles': { 'name': 'pebbles', 'age': 1 }
+     * };
+     *
+     * // using "_.pluck" callback shorthand
+     * _.mapValues(characters, 'age');
+     * // => { 'fred': 40, 'pebbles': 1 }
+     */
+    function mapValues(object, callback, thisArg) {
+      var result = {};
+      callback = lodash.createCallback(callback, thisArg, 3);
+
+      forOwn(object, function(value, key, object) {
+        result[key] = callback(value, key, object);
+      });
+      return result;
     }
 
     /**
@@ -2398,21 +2646,21 @@ var global=self;/**
      * @example
      *
      * var names = {
-     *   'stooges': [
-     *     { 'name': 'moe' },
-     *     { 'name': 'larry' }
+     *   'characters': [
+     *     { 'name': 'barney' },
+     *     { 'name': 'fred' }
      *   ]
      * };
      *
      * var ages = {
-     *   'stooges': [
-     *     { 'age': 40 },
-     *     { 'age': 50 }
+     *   'characters': [
+     *     { 'age': 36 },
+     *     { 'age': 40 }
      *   ]
      * };
      *
      * _.merge(names, ages);
-     * // => { 'stooges': [{ 'name': 'moe', 'age': 40 }, { 'name': 'larry', 'age': 50 }] }
+     * // => { 'characters': [{ 'name': 'barney', 'age': 36 }, { 'name': 'fred', 'age': 40 }] }
      *
      * var food = {
      *   'fruits': ['apple'],
@@ -2446,7 +2694,7 @@ var global=self;/**
       } else if (length > 2 && typeof args[length - 1] == 'function') {
         callback = args[--length];
       }
-      var sources = nativeSlice.call(arguments, 1, length),
+      var sources = slice(arguments, 1, length),
           index = -1,
           stackA = getArray(),
           stackB = getArray();
@@ -2477,32 +2725,38 @@ var global=self;/**
      * @returns {Object} Returns an object without the omitted properties.
      * @example
      *
-     * _.omit({ 'name': 'moe', 'age': 40 }, 'age');
-     * // => { 'name': 'moe' }
+     * _.omit({ 'name': 'fred', 'age': 40 }, 'age');
+     * // => { 'name': 'fred' }
      *
-     * _.omit({ 'name': 'moe', 'age': 40 }, function(value) {
+     * _.omit({ 'name': 'fred', 'age': 40 }, function(value) {
      *   return typeof value == 'number';
      * });
-     * // => { 'name': 'moe' }
+     * // => { 'name': 'fred' }
      */
     function omit(object, callback, thisArg) {
-      var indexOf = getIndexOf(),
-          isFunc = typeof callback == 'function',
-          result = {};
+      var result = {};
+      if (typeof callback != 'function') {
+        var props = [];
+        forIn(object, function(value, key) {
+          props.push(key);
+        });
+        props = baseDifference(props, baseFlatten(arguments, true, false, 1));
 
-      if (isFunc) {
-        callback = lodash.createCallback(callback, thisArg, 3);
-      } else {
-        var props = baseFlatten(arguments, true, false, 1);
-      }
-      forIn(object, function(value, key, object) {
-        if (isFunc
-              ? !callback(value, key, object)
-              : indexOf(props, key) < 0
-            ) {
-          result[key] = value;
+        var index = -1,
+            length = props.length;
+
+        while (++index < length) {
+          var key = props[index];
+          result[key] = object[key];
         }
-      });
+      } else {
+        callback = lodash.createCallback(callback, thisArg, 3);
+        forIn(object, function(value, key, object) {
+          if (!callback(value, key, object)) {
+            result[key] = value;
+          }
+        });
+      }
       return result;
     }
 
@@ -2517,8 +2771,8 @@ var global=self;/**
      * @returns {Array} Returns new array of key-value pairs.
      * @example
      *
-     * _.pairs({ 'moe': 30, 'larry': 40 });
-     * // => [['moe', 30], ['larry', 40]] (property order is not guaranteed across environments)
+     * _.pairs({ 'barney': 36, 'fred': 40 });
+     * // => [['barney', 36], ['fred', 40]] (property order is not guaranteed across environments)
      */
     function pairs(object) {
       var index = -1,
@@ -2552,13 +2806,13 @@ var global=self;/**
      * @returns {Object} Returns an object composed of the picked properties.
      * @example
      *
-     * _.pick({ 'name': 'moe', '_userid': 'moe1' }, 'name');
-     * // => { 'name': 'moe' }
+     * _.pick({ 'name': 'fred', '_userid': 'fred1' }, 'name');
+     * // => { 'name': 'fred' }
      *
-     * _.pick({ 'name': 'moe', '_userid': 'moe1' }, function(value, key) {
+     * _.pick({ 'name': 'fred', '_userid': 'fred1' }, function(value, key) {
      *   return key.charAt(0) != '_';
      * });
-     * // => { 'name': 'moe' }
+     * // => { 'name': 'fred' }
      */
     function pick(object, callback, thisArg) {
       var result = {};
@@ -2586,16 +2840,16 @@ var global=self;/**
 
     /**
      * An alternative to `_.reduce` this method transforms `object` to a new
-     * `accumulator` object which is the result of running each of its elements
-     * through a callback, with each callback execution potentially mutating
-     * the `accumulator` object. The callback is bound to `thisArg` and invoked
-     * with four arguments; (accumulator, value, key, object). Callbacks may exit
-     * iteration early by explicitly returning `false`.
+     * `accumulator` object which is the result of running each of its own
+     * enumerable properties through a callback, with each callback execution
+     * potentially mutating the `accumulator` object. The callback is bound to
+     * `thisArg` and invoked with four arguments; (accumulator, value, key, object).
+     * Callbacks may exit iteration early by explicitly returning `false`.
      *
      * @static
      * @memberOf _
      * @category Objects
-     * @param {Array|Object} collection The collection to iterate over.
+     * @param {Array|Object} object The object to iterate over.
      * @param {Function} [callback=identity] The function called per iteration.
      * @param {*} [accumulator] The custom accumulator value.
      * @param {*} [thisArg] The `this` binding of `callback`.
@@ -2617,8 +2871,6 @@ var global=self;/**
      */
     function transform(object, callback, accumulator, thisArg) {
       var isArr = isArray(object);
-      callback = baseCreateCallback(callback, thisArg, 4);
-
       if (accumulator == null) {
         if (isArr) {
           accumulator = [];
@@ -2626,12 +2878,15 @@ var global=self;/**
           var ctor = object && object.constructor,
               proto = ctor && ctor.prototype;
 
-          accumulator = createObject(proto);
+          accumulator = baseCreate(proto);
         }
       }
-      (isArr ? forEach : forOwn)(object, function(value, index, object) {
-        return callback(accumulator, value, index, object);
-      });
+      if (callback) {
+        callback = lodash.createCallback(callback, thisArg, 4);
+        (isArr ? forEach : forOwn)(object, function(value, index, object) {
+          return callback(accumulator, value, index, object);
+        });
+      }
       return accumulator;
     }
 
@@ -2680,8 +2935,8 @@ var global=self;/**
      * _.at(['a', 'b', 'c', 'd', 'e'], [0, 2, 4]);
      * // => ['a', 'c', 'e']
      *
-     * _.at(['moe', 'larry', 'curly'], 0, 2);
-     * // => ['moe', 'curly']
+     * _.at(['fred', 'barney', 'pebbles'], 0, 2);
+     * // => ['fred', 'pebbles']
      */
     function at(collection) {
       var args = arguments,
@@ -2717,10 +2972,10 @@ var global=self;/**
      * _.contains([1, 2, 3], 1, 2);
      * // => false
      *
-     * _.contains({ 'name': 'moe', 'age': 40 }, 'moe');
+     * _.contains({ 'name': 'fred', 'age': 40 }, 'fred');
      * // => true
      *
-     * _.contains('curly', 'ur');
+     * _.contains('pebbles', 'eb');
      * // => true
      */
     function contains(collection, target, fromIndex) {
@@ -2807,20 +3062,20 @@ var global=self;/**
      *  else `false`.
      * @example
      *
-     * _.every([true, 1, null, 'yes'], Boolean);
+     * _.every([true, 1, null, 'yes']);
      * // => false
      *
-     * var stooges = [
-     *   { 'name': 'moe', 'age': 40 },
-     *   { 'name': 'larry', 'age': 50 }
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36 },
+     *   { 'name': 'fred',   'age': 40 }
      * ];
      *
      * // using "_.pluck" callback shorthand
-     * _.every(stooges, 'age');
+     * _.every(characters, 'age');
      * // => true
      *
      * // using "_.where" callback shorthand
-     * _.every(stooges, { 'age': 50 });
+     * _.every(characters, { 'age': 36 });
      * // => false
      */
     function every(collection, callback, thisArg) {
@@ -2871,18 +3126,18 @@ var global=self;/**
      * var evens = _.filter([1, 2, 3, 4, 5, 6], function(num) { return num % 2 == 0; });
      * // => [2, 4, 6]
      *
-     * var food = [
-     *   { 'name': 'apple',  'organic': false, 'type': 'fruit' },
-     *   { 'name': 'carrot', 'organic': true,  'type': 'vegetable' }
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36, 'blocked': false },
+     *   { 'name': 'fred',   'age': 40, 'blocked': true }
      * ];
      *
      * // using "_.pluck" callback shorthand
-     * _.filter(food, 'organic');
-     * // => [{ 'name': 'carrot', 'organic': true, 'type': 'vegetable' }]
+     * _.filter(characters, 'blocked');
+     * // => [{ 'name': 'fred', 'age': 40, 'blocked': true }]
      *
      * // using "_.where" callback shorthand
-     * _.filter(food, { 'type': 'fruit' });
-     * // => [{ 'name': 'apple', 'organic': false, 'type': 'fruit' }]
+     * _.filter(characters, { 'age': 36 });
+     * // => [{ 'name': 'barney', 'age': 36, 'blocked': false }]
      */
     function filter(collection, callback, thisArg) {
       var result = [];
@@ -2932,24 +3187,24 @@ var global=self;/**
      * @returns {*} Returns the found element, else `undefined`.
      * @example
      *
-     * _.find([1, 2, 3, 4], function(num) {
-     *   return num % 2 == 0;
-     * });
-     * // => 2
-     *
-     * var food = [
-     *   { 'name': 'apple',  'organic': false, 'type': 'fruit' },
-     *   { 'name': 'banana', 'organic': true,  'type': 'fruit' },
-     *   { 'name': 'beet',   'organic': false, 'type': 'vegetable' }
+     * var characters = [
+     *   { 'name': 'barney',  'age': 36, 'blocked': false },
+     *   { 'name': 'fred',    'age': 40, 'blocked': true },
+     *   { 'name': 'pebbles', 'age': 1,  'blocked': false }
      * ];
      *
+     * _.find(characters, function(chr) {
+     *   return chr.age < 40;
+     * });
+     * // => { 'name': 'barney', 'age': 36, 'blocked': false }
+     *
      * // using "_.where" callback shorthand
-     * _.find(food, { 'type': 'vegetable' });
-     * // => { 'name': 'beet', 'organic': false, 'type': 'vegetable' }
+     * _.find(characters, { 'age': 1 });
+     * // =>  { 'name': 'pebbles', 'age': 1, 'blocked': false }
      *
      * // using "_.pluck" callback shorthand
-     * _.find(food, 'organic');
-     * // => { 'name': 'banana', 'organic': true, 'type': 'fruit' }
+     * _.find(characters, 'blocked');
+     * // => { 'name': 'fred', 'age': 40, 'blocked': true }
      */
     function find(collection, callback, thisArg) {
       callback = lodash.createCallback(callback, thisArg, 3);
@@ -3013,6 +3268,10 @@ var global=self;/**
      * element. The callback is bound to `thisArg` and invoked with three arguments;
      * (value, index|key, collection). Callbacks may exit iteration early by
      * explicitly returning `false`.
+     *
+     * Note: As with other "Collections" methods, objects with a `length` property
+     * are iterated like arrays. To avoid this behavior `_.forIn` or `_.forOwn`
+     * may be used for object iteration.
      *
      * @static
      * @memberOf _
@@ -3159,7 +3418,7 @@ var global=self;/**
      * _.indexBy(keys, function(key) { return String.fromCharCode(key.code); });
      * // => { 'a': { 'dir': 'left', 'code': 97 }, 'd': { 'dir': 'right', 'code': 100 } }
      *
-     * _.indexBy(stooges, function(key) { this.fromCharCode(key.code); }, String);
+     * _.indexBy(characters, function(key) { this.fromCharCode(key.code); }, String);
      * // => { 'a': { 'dir': 'left', 'code': 97 }, 'd': { 'dir': 'right', 'code': 100 } }
      */
     var indexBy = createAggregator(function(result, value, key) {
@@ -3189,7 +3448,7 @@ var global=self;/**
      * // => [['1', '2', '3'], ['4', '5', '6']]
      */
     function invoke(collection, methodName) {
-      var args = nativeSlice.call(arguments, 2),
+      var args = slice(arguments, 2),
           index = -1,
           isFunc = typeof methodName == 'function',
           length = collection ? collection.length : 0,
@@ -3231,14 +3490,14 @@ var global=self;/**
      * _.map({ 'one': 1, 'two': 2, 'three': 3 }, function(num) { return num * 3; });
      * // => [3, 6, 9] (property order is not guaranteed across environments)
      *
-     * var stooges = [
-     *   { 'name': 'moe', 'age': 40 },
-     *   { 'name': 'larry', 'age': 50 }
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36 },
+     *   { 'name': 'fred',   'age': 40 }
      * ];
      *
      * // using "_.pluck" callback shorthand
-     * _.map(stooges, 'name');
-     * // => ['moe', 'larry']
+     * _.map(characters, 'name');
+     * // => ['barney', 'fred']
      */
     function map(collection, callback, thisArg) {
       var index = -1,
@@ -3287,23 +3546,28 @@ var global=self;/**
      * _.max([4, 2, 8, 6]);
      * // => 8
      *
-     * var stooges = [
-     *   { 'name': 'moe', 'age': 40 },
-     *   { 'name': 'larry', 'age': 50 }
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36 },
+     *   { 'name': 'fred',   'age': 40 }
      * ];
      *
-     * _.max(stooges, function(stooge) { return stooge.age; });
-     * // => { 'name': 'larry', 'age': 50 };
+     * _.max(characters, function(chr) { return chr.age; });
+     * // => { 'name': 'fred', 'age': 40 };
      *
      * // using "_.pluck" callback shorthand
-     * _.max(stooges, 'age');
-     * // => { 'name': 'larry', 'age': 50 };
+     * _.max(characters, 'age');
+     * // => { 'name': 'fred', 'age': 40 };
      */
     function max(collection, callback, thisArg) {
       var computed = -Infinity,
           result = computed;
 
-      if (!callback && isArray(collection)) {
+      // allows working with functions like `_.map` without using
+      // their `index` argument as a callback
+      if (typeof callback != 'function' && thisArg && thisArg[callback] === collection) {
+        callback = null;
+      }
+      if (callback == null && isArray(collection)) {
         var index = -1,
             length = collection.length;
 
@@ -3314,7 +3578,7 @@ var global=self;/**
           }
         }
       } else {
-        callback = (!callback && isString(collection))
+        callback = (callback == null && isString(collection))
           ? charAtCallback
           : lodash.createCallback(callback, thisArg, 3);
 
@@ -3357,23 +3621,28 @@ var global=self;/**
      * _.min([4, 2, 8, 6]);
      * // => 2
      *
-     * var stooges = [
-     *   { 'name': 'moe', 'age': 40 },
-     *   { 'name': 'larry', 'age': 50 }
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36 },
+     *   { 'name': 'fred',   'age': 40 }
      * ];
      *
-     * _.min(stooges, function(stooge) { return stooge.age; });
-     * // => { 'name': 'moe', 'age': 40 };
+     * _.min(characters, function(chr) { return chr.age; });
+     * // => { 'name': 'barney', 'age': 36 };
      *
      * // using "_.pluck" callback shorthand
-     * _.min(stooges, 'age');
-     * // => { 'name': 'moe', 'age': 40 };
+     * _.min(characters, 'age');
+     * // => { 'name': 'barney', 'age': 36 };
      */
     function min(collection, callback, thisArg) {
       var computed = Infinity,
           result = computed;
 
-      if (!callback && isArray(collection)) {
+      // allows working with functions like `_.map` without using
+      // their `index` argument as a callback
+      if (typeof callback != 'function' && thisArg && thisArg[callback] === collection) {
+        callback = null;
+      }
+      if (callback == null && isArray(collection)) {
         var index = -1,
             length = collection.length;
 
@@ -3384,7 +3653,7 @@ var global=self;/**
           }
         }
       } else {
-        callback = (!callback && isString(collection))
+        callback = (callback == null && isString(collection))
           ? charAtCallback
           : lodash.createCallback(callback, thisArg, 3);
 
@@ -3400,37 +3669,26 @@ var global=self;/**
     }
 
     /**
-     * Retrieves the value of a specified property from all elements in the `collection`.
+     * Retrieves the value of a specified property from all elements in the collection.
      *
      * @static
      * @memberOf _
      * @type Function
      * @category Collections
      * @param {Array|Object|string} collection The collection to iterate over.
-     * @param {string} property The property to pluck.
+     * @param {string} property The name of the property to pluck.
      * @returns {Array} Returns a new array of property values.
      * @example
      *
-     * var stooges = [
-     *   { 'name': 'moe', 'age': 40 },
-     *   { 'name': 'larry', 'age': 50 }
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36 },
+     *   { 'name': 'fred',   'age': 40 }
      * ];
      *
-     * _.pluck(stooges, 'name');
-     * // => ['moe', 'larry']
+     * _.pluck(characters, 'name');
+     * // => ['barney', 'fred']
      */
-    function pluck(collection, property) {
-      var index = -1,
-          length = collection ? collection.length : 0;
-
-      if (typeof length == 'number') {
-        var result = Array(length);
-        while (++index < length) {
-          result[index] = collection[index][property];
-        }
-      }
-      return result || map(collection, property);
-    }
+    var pluck = map;
 
     /**
      * Reduces a collection to a value which is the accumulated result of running
@@ -3465,7 +3723,7 @@ var global=self;/**
     function reduce(collection, callback, accumulator, thisArg) {
       if (!collection) return accumulator;
       var noaccum = arguments.length < 3;
-      callback = baseCreateCallback(callback, thisArg, 4);
+      callback = lodash.createCallback(callback, thisArg, 4);
 
       var index = -1,
           length = collection.length;
@@ -3508,7 +3766,7 @@ var global=self;/**
      */
     function reduceRight(collection, callback, accumulator, thisArg) {
       var noaccum = arguments.length < 3;
-      callback = baseCreateCallback(callback, thisArg, 4);
+      callback = lodash.createCallback(callback, thisArg, 4);
       forEachRight(collection, function(value, index, collection) {
         accumulator = noaccum
           ? (noaccum = false, value)
@@ -3542,18 +3800,18 @@ var global=self;/**
      * var odds = _.reject([1, 2, 3, 4, 5, 6], function(num) { return num % 2 == 0; });
      * // => [1, 3, 5]
      *
-     * var food = [
-     *   { 'name': 'apple',  'organic': false, 'type': 'fruit' },
-     *   { 'name': 'carrot', 'organic': true,  'type': 'vegetable' }
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36, 'blocked': false },
+     *   { 'name': 'fred',   'age': 40, 'blocked': true }
      * ];
      *
      * // using "_.pluck" callback shorthand
-     * _.reject(food, 'organic');
-     * // => [{ 'name': 'apple', 'organic': false, 'type': 'fruit' }]
+     * _.reject(characters, 'blocked');
+     * // => [{ 'name': 'barney', 'age': 36, 'blocked': false }]
      *
      * // using "_.where" callback shorthand
-     * _.reject(food, { 'type': 'fruit' });
-     * // => [{ 'name': 'carrot', 'organic': true, 'type': 'vegetable' }]
+     * _.reject(characters, { 'age': 36 });
+     * // => [{ 'name': 'fred', 'age': 40, 'blocked': true }]
      */
     function reject(collection, callback, thisArg) {
       callback = lodash.createCallback(callback, thisArg, 3);
@@ -3570,8 +3828,8 @@ var global=self;/**
      * @category Collections
      * @param {Array|Object|string} collection The collection to sample.
      * @param {number} [n] The number of elements to sample.
-     * @param- {Object} [guard] Allows working with functions, like `_.map`,
-     *  without using their `key` and `object` arguments as sources.
+     * @param- {Object} [guard] Allows working with functions like `_.map`
+     *  without using their `index` arguments as `n`.
      * @returns {Array} Returns the random sample(s) of `collection`.
      * @example
      *
@@ -3582,12 +3840,11 @@ var global=self;/**
      * // => [3, 1]
      */
     function sample(collection, n, guard) {
-      var length = collection ? collection.length : 0;
-      if (typeof length != 'number') {
+      if (collection && typeof collection.length != 'number') {
         collection = values(collection);
       }
       if (n == null || guard) {
-        return collection ? collection[random(length - 1)] : undefined;
+        return collection ? collection[baseRandom(0, collection.length - 1)] : undefined;
       }
       var result = shuffle(collection);
       result.length = nativeMin(nativeMax(0, n), result.length);
@@ -3614,7 +3871,7 @@ var global=self;/**
           result = Array(typeof length == 'number' ? length : 0);
 
       forEach(collection, function(value) {
-        var rand = random(++index);
+        var rand = baseRandom(0, ++index);
         result[index] = result[rand];
         result[rand] = value;
       });
@@ -3638,8 +3895,8 @@ var global=self;/**
      * _.size({ 'one': 1, 'two': 2, 'three': 3 });
      * // => 3
      *
-     * _.size('curly');
-     * // => 5
+     * _.size('pebbles');
+     * // => 7
      */
     function size(collection) {
       var length = collection ? collection.length : 0;
@@ -3675,17 +3932,17 @@ var global=self;/**
      * _.some([null, 0, 'yes', false], Boolean);
      * // => true
      *
-     * var food = [
-     *   { 'name': 'apple',  'organic': false, 'type': 'fruit' },
-     *   { 'name': 'carrot', 'organic': true,  'type': 'vegetable' }
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36, 'blocked': false },
+     *   { 'name': 'fred',   'age': 40, 'blocked': true }
      * ];
      *
      * // using "_.pluck" callback shorthand
-     * _.some(food, 'organic');
+     * _.some(characters, 'blocked');
      * // => true
      *
      * // using "_.where" callback shorthand
-     * _.some(food, { 'type': 'meat' });
+     * _.some(characters, { 'age': 1 });
      * // => false
      */
     function some(collection, callback, thisArg) {
@@ -3719,6 +3976,9 @@ var global=self;/**
      * If a property name is provided for `callback` the created "_.pluck" style
      * callback will return the property value of the given element.
      *
+     * If an array of property names is provided for `callback` the collection
+     * will be sorted by each property value.
+     *
      * If an object is provided for `callback` the created "_.where" style callback
      * will return `true` for elements that have the properties of the given object,
      * else `false`.
@@ -3727,7 +3987,7 @@ var global=self;/**
      * @memberOf _
      * @category Collections
      * @param {Array|Object|string} collection The collection to iterate over.
-     * @param {Function|Object|string} [callback=identity] The function called
+     * @param {Array|Function|Object|string} [callback=identity] The function called
      *  per iteration. If a property name or object is provided it will be used
      *  to create a "_.pluck" or "_.where" style callback, respectively.
      * @param {*} [thisArg] The `this` binding of `callback`.
@@ -3740,19 +4000,37 @@ var global=self;/**
      * _.sortBy([1, 2, 3], function(num) { return this.sin(num); }, Math);
      * // => [3, 1, 2]
      *
+     * var characters = [
+     *   { 'name': 'barney',  'age': 36 },
+     *   { 'name': 'fred',    'age': 40 },
+     *   { 'name': 'barney',  'age': 26 },
+     *   { 'name': 'fred',    'age': 30 }
+     * ];
+     *
      * // using "_.pluck" callback shorthand
-     * _.sortBy(['banana', 'strawberry', 'apple'], 'length');
-     * // => ['apple', 'banana', 'strawberry']
+     * _.map(_.sortBy(characters, 'age'), _.values);
+     * // => [['barney', 26], ['fred', 30], ['barney', 36], ['fred', 40]]
+     *
+     * // sorting by multiple properties
+     * _.map(_.sortBy(characters, ['name', 'age']), _.values);
+     * // = > [['barney', 26], ['barney', 36], ['fred', 30], ['fred', 40]]
      */
     function sortBy(collection, callback, thisArg) {
       var index = -1,
+          isArr = isArray(callback),
           length = collection ? collection.length : 0,
           result = Array(typeof length == 'number' ? length : 0);
 
-      callback = lodash.createCallback(callback, thisArg, 3);
+      if (!isArr) {
+        callback = lodash.createCallback(callback, thisArg, 3);
+      }
       forEach(collection, function(value, key, collection) {
         var object = result[++index] = getObject();
-        object.criteria = callback(value, key, collection);
+        if (isArr) {
+          object.criteria = map(callback, function(key) { return value[key]; });
+        } else {
+          (object.criteria = getArray())[0] = callback(value, key, collection);
+        }
         object.index = index;
         object.value = value;
       });
@@ -3762,6 +4040,9 @@ var global=self;/**
       while (length--) {
         var object = result[length];
         result[length] = object.value;
+        if (!isArr) {
+          releaseArray(object.criteria);
+        }
         releaseObject(object);
       }
       return result;
@@ -3797,20 +4078,20 @@ var global=self;/**
      * @type Function
      * @category Collections
      * @param {Array|Object|string} collection The collection to iterate over.
-     * @param {Object} properties The object of property values to filter by.
+     * @param {Object} props The object of property values to filter by.
      * @returns {Array} Returns a new array of elements that have the given properties.
      * @example
      *
-     * var stooges = [
-     *   { 'name': 'curly', 'age': 30, 'quotes': ['Oh, a wise guy, eh?', 'Poifect!'] },
-     *   { 'name': 'moe', 'age': 40, 'quotes': ['Spread out!', 'You knucklehead!'] }
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36, 'pets': ['hoppy'] },
+     *   { 'name': 'fred',   'age': 40, 'pets': ['baby puss', 'dino'] }
      * ];
      *
-     * _.where(stooges, { 'age': 40 });
-     * // => [{ 'name': 'moe', 'age': 40, 'quotes': ['Spread out!', 'You knucklehead!'] }]
+     * _.where(characters, { 'age': 36 });
+     * // => [{ 'name': 'barney', 'age': 36, 'pets': ['hoppy'] }]
      *
-     * _.where(stooges, { 'quotes': ['Poifect!'] });
-     * // => [{ 'name': 'curly', 'age': 30, 'quotes': ['Oh, a wise guy, eh?', 'Poifect!'] }]
+     * _.where(characters, { 'pets': ['dino'] });
+     * // => [{ 'name': 'fred', 'age': 40, 'pets': ['baby puss', 'dino'] }]
      */
     var where = filter;
 
@@ -3852,7 +4133,7 @@ var global=self;/**
      * @memberOf _
      * @category Arrays
      * @param {Array} array The array to process.
-     * @param {...Array} [array] The arrays of values to exclude.
+     * @param {...Array} [values] The arrays of values to exclude.
      * @returns {Array} Returns a new array of filtered values.
      * @example
      *
@@ -3860,38 +4141,19 @@ var global=self;/**
      * // => [1, 3, 4]
      */
     function difference(array) {
-      var index = -1,
-          indexOf = getIndexOf(),
-          length = array ? array.length : 0,
-          seen = baseFlatten(arguments, true, true, 1),
-          result = [];
-
-      var isLarge = length >= largeArraySize && indexOf === baseIndexOf;
-
-      if (isLarge) {
-        var cache = createCache(seen);
-        if (cache) {
-          indexOf = cacheIndexOf;
-          seen = cache;
-        } else {
-          isLarge = false;
-        }
-      }
-      while (++index < length) {
-        var value = array[index];
-        if (indexOf(seen, value) < 0) {
-          result.push(value);
-        }
-      }
-      if (isLarge) {
-        releaseObject(seen);
-      }
-      return result;
+      return baseDifference(array, baseFlatten(arguments, true, true, 1));
     }
 
     /**
      * This method is like `_.find` except that it returns the index of the first
      * element that passes the callback check, instead of the element itself.
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
      *
      * @static
      * @memberOf _
@@ -3904,9 +4166,23 @@ var global=self;/**
      * @returns {number} Returns the index of the found element, else `-1`.
      * @example
      *
-     * _.findIndex(['apple', 'banana', 'beet'], function(food) {
-     *   return /^b/.test(food);
+     * var characters = [
+     *   { 'name': 'barney',  'age': 36, 'blocked': false },
+     *   { 'name': 'fred',    'age': 40, 'blocked': true },
+     *   { 'name': 'pebbles', 'age': 1,  'blocked': false }
+     * ];
+     *
+     * _.findIndex(characters, function(chr) {
+     *   return chr.age < 20;
      * });
+     * // => 2
+     *
+     * // using "_.where" callback shorthand
+     * _.findIndex(characters, { 'age': 36 });
+     * // => 0
+     *
+     * // using "_.pluck" callback shorthand
+     * _.findIndex(characters, 'blocked');
      * // => 1
      */
     function findIndex(array, callback, thisArg) {
@@ -3926,6 +4202,13 @@ var global=self;/**
      * This method is like `_.findIndex` except that it iterates over elements
      * of a `collection` from right to left.
      *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
+     *
      * @static
      * @memberOf _
      * @category Arrays
@@ -3937,9 +4220,23 @@ var global=self;/**
      * @returns {number} Returns the index of the found element, else `-1`.
      * @example
      *
-     * _.findLastIndex(['apple', 'banana', 'beet'], function(food) {
-     *   return /^b/.test(food);
+     * var characters = [
+     *   { 'name': 'barney',  'age': 36, 'blocked': true },
+     *   { 'name': 'fred',    'age': 40, 'blocked': false },
+     *   { 'name': 'pebbles', 'age': 1,  'blocked': true }
+     * ];
+     *
+     * _.findLastIndex(characters, function(chr) {
+     *   return chr.age > 30;
      * });
+     * // => 1
+     *
+     * // using "_.where" callback shorthand
+     * _.findLastIndex(characters, { 'age': 36 });
+     * // => 0
+     *
+     * // using "_.pluck" callback shorthand
+     * _.findLastIndex(characters, 'blocked');
      * // => 2
      */
     function findLastIndex(array, callback, thisArg) {
@@ -3990,24 +4287,19 @@ var global=self;/**
      * });
      * // => [1, 2]
      *
-     * var food = [
-     *   { 'name': 'banana', 'organic': true },
-     *   { 'name': 'beet',   'organic': false },
+     * var characters = [
+     *   { 'name': 'barney',  'blocked': true,  'employer': 'slate' },
+     *   { 'name': 'fred',    'blocked': false, 'employer': 'slate' },
+     *   { 'name': 'pebbles', 'blocked': true,  'employer': 'na' }
      * ];
      *
      * // using "_.pluck" callback shorthand
-     * _.first(food, 'organic');
-     * // => [{ 'name': 'banana', 'organic': true }]
-     *
-     * var food = [
-     *   { 'name': 'apple',  'type': 'fruit' },
-     *   { 'name': 'banana', 'type': 'fruit' },
-     *   { 'name': 'beet',   'type': 'vegetable' }
-     * ];
+     * _.first(characters, 'blocked');
+     * // => [{ 'name': 'barney', 'blocked': true, 'employer': 'slate' }]
      *
      * // using "_.where" callback shorthand
-     * _.first(food, { 'type': 'fruit' });
-     * // => [{ 'name': 'apple', 'type': 'fruit' }, { 'name': 'banana', 'type': 'fruit' }]
+     * _.pluck(_.first(characters, { 'employer': 'slate' }), 'name');
+     * // => ['barney', 'fred']
      */
     function first(array, callback, thisArg) {
       var n = 0,
@@ -4060,20 +4352,20 @@ var global=self;/**
      * _.flatten([1, [2], [3, [[4]]]], true);
      * // => [1, 2, 3, [[4]]];
      *
-     * var stooges = [
-     *   { 'name': 'curly', 'quotes': ['Oh, a wise guy, eh?', 'Poifect!'] },
-     *   { 'name': 'moe', 'quotes': ['Spread out!', 'You knucklehead!'] }
+     * var characters = [
+     *   { 'name': 'barney', 'age': 30, 'pets': ['hoppy'] },
+     *   { 'name': 'fred',   'age': 40, 'pets': ['baby puss', 'dino'] }
      * ];
      *
      * // using "_.pluck" callback shorthand
-     * _.flatten(stooges, 'quotes');
-     * // => ['Oh, a wise guy, eh?', 'Poifect!', 'Spread out!', 'You knucklehead!']
+     * _.flatten(characters, 'pets');
+     * // => ['hoppy', 'baby puss', 'dino']
      */
     function flatten(array, isShallow, callback, thisArg) {
       // juggle arguments
       if (typeof isShallow != 'boolean' && isShallow != null) {
         thisArg = callback;
-        callback = !(thisArg && thisArg[isShallow] === array) ? isShallow : null;
+        callback = (typeof isShallow != 'function' && thisArg && thisArg[isShallow] === array) ? null : isShallow;
         isShallow = false;
       }
       if (callback != null) {
@@ -4153,24 +4445,19 @@ var global=self;/**
      * });
      * // => [1]
      *
-     * var food = [
-     *   { 'name': 'beet',   'organic': false },
-     *   { 'name': 'carrot', 'organic': true }
+     * var characters = [
+     *   { 'name': 'barney',  'blocked': false, 'employer': 'slate' },
+     *   { 'name': 'fred',    'blocked': true,  'employer': 'slate' },
+     *   { 'name': 'pebbles', 'blocked': true,  'employer': 'na' }
      * ];
      *
      * // using "_.pluck" callback shorthand
-     * _.initial(food, 'organic');
-     * // => [{ 'name': 'beet',   'organic': false }]
-     *
-     * var food = [
-     *   { 'name': 'banana', 'type': 'fruit' },
-     *   { 'name': 'beet',   'type': 'vegetable' },
-     *   { 'name': 'carrot', 'type': 'vegetable' }
-     * ];
+     * _.initial(characters, 'blocked');
+     * // => [{ 'name': 'barney',  'blocked': false, 'employer': 'slate' }]
      *
      * // using "_.where" callback shorthand
-     * _.initial(food, { 'type': 'vegetable' });
-     * // => [{ 'name': 'banana', 'type': 'fruit' }]
+     * _.pluck(_.initial(characters, { 'employer': 'na' }), 'name');
+     * // => ['barney', 'fred']
      */
     function initial(array, callback, thisArg) {
       var n = 0,
@@ -4196,29 +4483,34 @@ var global=self;/**
      * @memberOf _
      * @category Arrays
      * @param {...Array} [array] The arrays to inspect.
-     * @returns {Array} Returns an array of composite values.
+     * @returns {Array} Returns an array of shared values.
      * @example
      *
-     * _.intersection([1, 2, 3], [101, 2, 1, 10], [2, 1]);
+     * _.intersection([1, 2, 3], [5, 2, 1, 4], [2, 1]);
      * // => [1, 2]
      */
-    function intersection(array) {
-      var args = arguments,
-          argsLength = args.length,
+    function intersection() {
+      var args = [],
           argsIndex = -1,
+          argsLength = arguments.length,
           caches = getArray(),
-          index = -1,
           indexOf = getIndexOf(),
-          length = array ? array.length : 0,
-          result = [],
+          trustIndexOf = indexOf === baseIndexOf,
           seen = getArray();
 
       while (++argsIndex < argsLength) {
-        var value = args[argsIndex];
-        caches[argsIndex] = indexOf === baseIndexOf &&
-          (value ? value.length : 0) >= largeArraySize &&
-          createCache(argsIndex ? args[argsIndex] : seen);
+        var value = arguments[argsIndex];
+        if (isArray(value) || isArguments(value)) {
+          args.push(value);
+          caches.push(trustIndexOf && value.length >= largeArraySize &&
+            createCache(argsIndex ? args[argsIndex] : seen));
+        }
       }
+      var array = args[0],
+          index = -1,
+          length = array ? array.length : 0,
+          result = [];
+
       outer:
       while (++index < length) {
         var cache = caches[0];
@@ -4283,24 +4575,19 @@ var global=self;/**
      * });
      * // => [2, 3]
      *
-     * var food = [
-     *   { 'name': 'beet',   'organic': false },
-     *   { 'name': 'carrot', 'organic': true }
+     * var characters = [
+     *   { 'name': 'barney',  'blocked': false, 'employer': 'slate' },
+     *   { 'name': 'fred',    'blocked': true,  'employer': 'slate' },
+     *   { 'name': 'pebbles', 'blocked': true,  'employer': 'na' }
      * ];
      *
      * // using "_.pluck" callback shorthand
-     * _.last(food, 'organic');
-     * // => [{ 'name': 'carrot', 'organic': true }]
-     *
-     * var food = [
-     *   { 'name': 'banana', 'type': 'fruit' },
-     *   { 'name': 'beet',   'type': 'vegetable' },
-     *   { 'name': 'carrot', 'type': 'vegetable' }
-     * ];
+     * _.pluck(_.last(characters, 'blocked'), 'name');
+     * // => ['fred', 'pebbles']
      *
      * // using "_.where" callback shorthand
-     * _.last(food, { 'type': 'vegetable' });
-     * // => [{ 'name': 'beet', 'type': 'vegetable' }, { 'name': 'carrot', 'type': 'vegetable' }]
+     * _.last(characters, { 'employer': 'na' });
+     * // => [{ 'name': 'pebbles', 'blocked': true, 'employer': 'na' }]
      */
     function last(array, callback, thisArg) {
       var n = 0,
@@ -4325,6 +4612,13 @@ var global=self;/**
      * Gets the index at which the last occurrence of `value` is found using strict
      * equality for comparisons, i.e. `===`. If `fromIndex` is negative, it is used
      * as the offset from the end of the collection.
+     *
+     * If a property name is provided for `callback` the created "_.pluck" style
+     * callback will return the property value of the given element.
+     *
+     * If an object is provided for `callback` the created "_.where" style callback
+     * will return `true` for elements that have the properties of the given object,
+     * else `false`.
      *
      * @static
      * @memberOf _
@@ -4404,17 +4698,17 @@ var global=self;/**
      * @returns {Array} Returns a new range array.
      * @example
      *
-     * _.range(10);
-     * // => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+     * _.range(4);
+     * // => [0, 1, 2, 3]
      *
-     * _.range(1, 11);
-     * // => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+     * _.range(1, 5);
+     * // => [1, 2, 3, 4]
      *
-     * _.range(0, 30, 5);
-     * // => [0, 5, 10, 15, 20, 25]
+     * _.range(0, 20, 5);
+     * // => [0, 5, 10, 15]
      *
-     * _.range(0, -10, -1);
-     * // => [0, -1, -2, -3, -4, -5, -6, -7, -8, -9]
+     * _.range(0, -4, -1);
+     * // => [0, -1, -2, -3]
      *
      * _.range(1, 4, 0);
      * // => [1, 1, 1]
@@ -4430,7 +4724,7 @@ var global=self;/**
         end = start;
         start = 0;
       }
-      // use `Array(length)` so engines, like Chakra and V8, avoid slower modes
+      // use `Array(length)` so engines like Chakra and V8 avoid slower modes
       // http://youtu.be/XAqIpGU8ZZk#t=17m25s
       var index = -1,
           length = nativeMax(0, ceil((end - start) / (step || 1))),
@@ -4530,24 +4824,19 @@ var global=self;/**
      * });
      * // => [3]
      *
-     * var food = [
-     *   { 'name': 'banana', 'organic': true },
-     *   { 'name': 'beet',   'organic': false },
+     * var characters = [
+     *   { 'name': 'barney',  'blocked': true,  'employer': 'slate' },
+     *   { 'name': 'fred',    'blocked': false,  'employer': 'slate' },
+     *   { 'name': 'pebbles', 'blocked': true, 'employer': 'na' }
      * ];
      *
      * // using "_.pluck" callback shorthand
-     * _.rest(food, 'organic');
-     * // => [{ 'name': 'beet', 'organic': false }]
-     *
-     * var food = [
-     *   { 'name': 'apple',  'type': 'fruit' },
-     *   { 'name': 'banana', 'type': 'fruit' },
-     *   { 'name': 'beet',   'type': 'vegetable' }
-     * ];
+     * _.pluck(_.rest(characters, 'blocked'), 'name');
+     * // => ['fred', 'pebbles']
      *
      * // using "_.where" callback shorthand
-     * _.rest(food, { 'type': 'fruit' });
-     * // => [{ 'name': 'beet', 'type': 'vegetable' }]
+     * _.rest(characters, { 'employer': 'slate' });
+     * // => [{ 'name': 'pebbles', 'blocked': true, 'employer': 'na' }]
      */
     function rest(array, callback, thisArg) {
       if (typeof callback != 'number' && callback != null) {
@@ -4638,13 +4927,13 @@ var global=self;/**
      * @memberOf _
      * @category Arrays
      * @param {...Array} [array] The arrays to inspect.
-     * @returns {Array} Returns an array of composite values.
+     * @returns {Array} Returns an array of combined values.
      * @example
      *
-     * _.union([1, 2, 3], [101, 2, 1, 10], [2, 1]);
-     * // => [1, 2, 3, 101, 10]
+     * _.union([1, 2, 3], [5, 2, 1, 4], [2, 1]);
+     * // => [1, 2, 3, 5, 4]
      */
-    function union(array) {
+    function union() {
       return baseUniq(baseFlatten(arguments, true, true));
     }
 
@@ -4696,7 +4985,7 @@ var global=self;/**
       // juggle arguments
       if (typeof isSorted != 'boolean' && isSorted != null) {
         thisArg = callback;
-        callback = !(thisArg && thisArg[isSorted] === array) ? isSorted : null;
+        callback = (typeof isSorted != 'function' && thisArg && thisArg[isSorted] === array) ? null : isSorted;
         isSorted = false;
       }
       if (callback != null) {
@@ -4721,7 +5010,39 @@ var global=self;/**
      * // => [2, 3, 4]
      */
     function without(array) {
-      return difference(array, nativeSlice.call(arguments, 1));
+      return baseDifference(array, slice(arguments, 1));
+    }
+
+    /**
+     * Creates an array that is the symmetric difference of the provided arrays.
+     * See http://en.wikipedia.org/wiki/Symmetric_difference.
+     *
+     * @static
+     * @memberOf _
+     * @category Arrays
+     * @param {...Array} [array] The arrays to inspect.
+     * @returns {Array} Returns an array of values.
+     * @example
+     *
+     * _.xor([1, 2, 3], [5, 2, 1, 4]);
+     * // => [3, 5, 4]
+     *
+     * _.xor([1, 2, 5], [2, 3, 5], [3, 4, 5]);
+     * // => [1, 4, 5]
+     */
+    function xor() {
+      var index = -1,
+          length = arguments.length;
+
+      while (++index < length) {
+        var array = arguments[index];
+        if (isArray(array) || isArguments(array)) {
+          var result = result
+            ? baseUniq(baseDifference(result, array).concat(baseDifference(array, result)))
+            : array;
+        }
+      }
+      return result || [];
     }
 
     /**
@@ -4737,8 +5058,8 @@ var global=self;/**
      * @returns {Array} Returns a new array of grouped elements.
      * @example
      *
-     * _.zip(['moe', 'larry'], [30, 40], [true, false]);
-     * // => [['moe', 30, true], ['larry', 40, false]]
+     * _.zip(['fred', 'barney'], [30, 40], [true, false]);
+     * // => [['fred', 30, true], ['barney', 40, false]]
      */
     function zip() {
       var array = arguments.length > 1 ? arguments : arguments[0],
@@ -4767,14 +5088,17 @@ var global=self;/**
      *  corresponding values.
      * @example
      *
-     * _.zipObject(['moe', 'larry'], [30, 40]);
-     * // => { 'moe': 30, 'larry': 40 }
+     * _.zipObject(['fred', 'barney'], [30, 40]);
+     * // => { 'fred': 30, 'barney': 40 }
      */
     function zipObject(keys, values) {
       var index = -1,
           length = keys ? keys.length : 0,
           result = {};
 
+      if (!values && length && !isArray(keys[0])) {
+        values = [];
+      }
       while (++index < length) {
         var key = keys[index];
         if (values) {
@@ -4841,14 +5165,14 @@ var global=self;/**
      *   return greeting + ' ' + this.name;
      * };
      *
-     * func = _.bind(func, { 'name': 'moe' }, 'hi');
+     * func = _.bind(func, { 'name': 'fred' }, 'hi');
      * func();
-     * // => 'hi moe'
+     * // => 'hi fred'
      */
     function bind(func, thisArg) {
       return arguments.length > 2
-        ? createBound(func, 17, nativeSlice.call(arguments, 2), null, thisArg)
-        : createBound(func, 1, null, null, thisArg);
+        ? createWrapper(func, 17, slice(arguments, 2), null, thisArg)
+        : createWrapper(func, 1, null, null, thisArg);
     }
 
     /**
@@ -4867,8 +5191,8 @@ var global=self;/**
      * @example
      *
      * var view = {
-     *  'label': 'docs',
-     *  'onClick': function() { console.log('clicked ' + this.label); }
+     *   'label': 'docs',
+     *   'onClick': function() { console.log('clicked ' + this.label); }
      * };
      *
      * _.bindAll(view);
@@ -4882,7 +5206,7 @@ var global=self;/**
 
       while (++index < length) {
         var key = funcs[index];
-        object[key] = createBound(object[key], 1, null, null, object);
+        object[key] = createWrapper(object[key], 1, null, null, object);
       }
       return object;
     }
@@ -4904,7 +5228,7 @@ var global=self;/**
      * @example
      *
      * var object = {
-     *   'name': 'moe',
+     *   'name': 'fred',
      *   'greet': function(greeting) {
      *     return greeting + ' ' + this.name;
      *   }
@@ -4912,19 +5236,19 @@ var global=self;/**
      *
      * var func = _.bindKey(object, 'greet', 'hi');
      * func();
-     * // => 'hi moe'
+     * // => 'hi fred'
      *
      * object.greet = function(greeting) {
-     *   return greeting + ', ' + this.name + '!';
+     *   return greeting + 'ya ' + this.name + '!';
      * };
      *
      * func();
-     * // => 'hi, moe!'
+     * // => 'hiya fred!'
      */
     function bindKey(object, key) {
       return arguments.length > 2
-        ? createBound(key, 19, nativeSlice.call(arguments, 2), null, object)
-        : createBound(key, 3, null, null, object);
+        ? createWrapper(key, 19, slice(arguments, 2), null, object)
+        : createWrapper(key, 3, null, null, object);
     }
 
     /**
@@ -4941,7 +5265,7 @@ var global=self;/**
      * @example
      *
      * var realNameMap = {
-     *   'curly': 'jerome'
+     *   'pebbles': 'penelope'
      * };
      *
      * var format = function(name) {
@@ -4954,8 +5278,8 @@ var global=self;/**
      * };
      *
      * var welcome = _.compose(greet, format);
-     * welcome('curly');
-     * // => 'Hiya Jerome!'
+     * welcome('pebbles');
+     * // => 'Hiya Penelope!'
      */
     function compose() {
       var funcs = arguments,
@@ -4974,74 +5298,6 @@ var global=self;/**
           args = [funcs[length].apply(this, args)];
         }
         return args[0];
-      };
-    }
-
-    /**
-     * Produces a callback bound to an optional `thisArg`. If `func` is a property
-     * name the created callback will return the property value for a given element.
-     * If `func` is an object the created callback will return `true` for elements
-     * that contain the equivalent object properties, otherwise it will return `false`.
-     *
-     * @static
-     * @memberOf _
-     * @category Functions
-     * @param {*} [func=identity] The value to convert to a callback.
-     * @param {*} [thisArg] The `this` binding of the created callback.
-     * @param {number} [argCount] The number of arguments the callback accepts.
-     * @returns {Function} Returns a callback function.
-     * @example
-     *
-     * var stooges = [
-     *   { 'name': 'moe', 'age': 40 },
-     *   { 'name': 'larry', 'age': 50 }
-     * ];
-     *
-     * // wrap to create custom callback shorthands
-     * _.createCallback = _.wrap(_.createCallback, function(func, callback, thisArg) {
-     *   var match = /^(.+?)__([gl]t)(.+)$/.exec(callback);
-     *   return !match ? func(callback, thisArg) : function(object) {
-     *     return match[2] == 'gt' ? object[match[1]] > match[3] : object[match[1]] < match[3];
-     *   };
-     * });
-     *
-     * _.filter(stooges, 'age__gt45');
-     * // => [{ 'name': 'larry', 'age': 50 }]
-     */
-    function createCallback(func, thisArg, argCount) {
-      var type = typeof func;
-      if (func == null || type == 'function') {
-        return baseCreateCallback(func, thisArg, argCount);
-      }
-      // handle "_.pluck" style callback shorthands
-      if (type != 'object') {
-        return function(object) {
-          return object[func];
-        };
-      }
-      var props = keys(func),
-          key = props[0],
-          a = func[key];
-
-      // handle "_.where" style callback shorthands
-      if (props.length == 1 && a === a && !isObject(a)) {
-        // fast path the common case of providing an object with a single
-        // property containing a primitive value
-        return function(object) {
-          var b = object[key];
-          return a === b && (a !== 0 || (1 / a == 1 / b));
-        };
-      }
-      return function(object) {
-        var length = props.length,
-            result = false;
-
-        while (length--) {
-          if (!(result = baseIsEqual(object[props[length]], func[props[length]], null, true))) {
-            break;
-          }
-        }
-        return result;
       };
     }
 
@@ -5075,7 +5331,7 @@ var global=self;/**
      */
     function curry(func, arity) {
       arity = typeof arity == 'number' ? arity : (+arity || func.length);
-      return createBound(func, 4, null, null, null, arity);
+      return createWrapper(func, 4, null, null, null, arity);
     }
 
     /**
@@ -5152,6 +5408,9 @@ var global=self;/**
           if (isCalled) {
             lastCalled = now();
             result = func.apply(thisArg, args);
+            if (!timeoutId && !maxTimeoutId) {
+              args = thisArg = null;
+            }
           }
         } else {
           timeoutId = setTimeout(delayed, remaining);
@@ -5166,6 +5425,9 @@ var global=self;/**
         if (trailing || (maxWait !== wait)) {
           lastCalled = now();
           result = func.apply(thisArg, args);
+          if (!timeoutId && !maxTimeoutId) {
+            args = thisArg = null;
+          }
         }
       };
 
@@ -5181,8 +5443,10 @@ var global=self;/**
           if (!maxTimeoutId && !leading) {
             lastCalled = stamp;
           }
-          var remaining = maxWait - (stamp - lastCalled);
-          if (remaining <= 0) {
+          var remaining = maxWait - (stamp - lastCalled),
+              isCalled = remaining <= 0;
+
+          if (isCalled) {
             if (maxTimeoutId) {
               maxTimeoutId = clearTimeout(maxTimeoutId);
             }
@@ -5193,11 +5457,18 @@ var global=self;/**
             maxTimeoutId = setTimeout(maxDelayed, remaining);
           }
         }
-        if (!timeoutId && wait !== maxWait) {
+        if (isCalled && timeoutId) {
+          timeoutId = clearTimeout(timeoutId);
+        }
+        else if (!timeoutId && wait !== maxWait) {
           timeoutId = setTimeout(delayed, wait);
         }
         if (leadingCall) {
+          isCalled = true;
           result = func.apply(thisArg, args);
+        }
+        if (isCalled && !timeoutId && !maxTimeoutId) {
+          args = thisArg = null;
         }
         return result;
       };
@@ -5215,24 +5486,15 @@ var global=self;/**
      * @returns {number} Returns the timer id.
      * @example
      *
-     * _.defer(function() { console.log('deferred'); });
-     * // returns from the function before 'deferred' is logged
+     * _.defer(function(text) { console.log(text); }, 'deferred');
+     * // logs 'deferred' after one or more milliseconds
      */
     function defer(func) {
       if (!isFunction(func)) {
         throw new TypeError;
       }
-      var args = nativeSlice.call(arguments, 1);
+      var args = slice(arguments, 1);
       return setTimeout(function() { func.apply(undefined, args); }, 1);
-    }
-    // use `setImmediate` if available in Node.js
-    if (isV8 && moduleExports && typeof setImmediate == 'function') {
-      defer = function(func) {
-        if (!isFunction(func)) {
-          throw new TypeError;
-        }
-        return setImmediate.apply(context, arguments);
-      };
     }
 
     /**
@@ -5248,15 +5510,14 @@ var global=self;/**
      * @returns {number} Returns the timer id.
      * @example
      *
-     * var log = _.bind(console.log, console);
-     * _.delay(log, 1000, 'logged later');
-     * // => 'logged later' (Appears after one second.)
+     * _.delay(function(text) { console.log(text); }, 1000, 'later');
+     * // => logs 'later' after one second
      */
     function delay(func, wait) {
       if (!isFunction(func)) {
         throw new TypeError;
       }
-      var args = nativeSlice.call(arguments, 2);
+      var args = slice(arguments, 2);
       return setTimeout(function() { func.apply(undefined, args); }, wait);
     }
 
@@ -5280,19 +5541,22 @@ var global=self;/**
      *   return n < 2 ? n : fibonacci(n - 1) + fibonacci(n - 2);
      * });
      *
+     * fibonacci(9)
+     * // => 34
+     *
      * var data = {
-     *   'moe': { 'name': 'moe', 'age': 40 },
-     *   'curly': { 'name': 'curly', 'age': 60 }
+     *   'fred': { 'name': 'fred', 'age': 40 },
+     *   'pebbles': { 'name': 'pebbles', 'age': 1 }
      * };
      *
      * // modifying the result cache
-     * var stooge = _.memoize(function(name) { return data[name]; }, _.identity);
-     * stooge('curly');
-     * // => { 'name': 'curly', 'age': 60 }
+     * var get = _.memoize(function(name) { return data[name]; }, _.identity);
+     * get('pebbles');
+     * // => { 'name': 'pebbles', 'age': 1 }
      *
-     * stooge.cache.curly.name = 'jerome';
-     * stooge('curly');
-     * // => { 'name': 'jerome', 'age': 60 }
+     * get.cache.pebbles.name = 'penelope';
+     * get('pebbles');
+     * // => { 'name': 'penelope', 'age': 1 }
      */
     function memoize(func, resolver) {
       if (!isFunction(func)) {
@@ -5362,11 +5626,11 @@ var global=self;/**
      *
      * var greet = function(greeting, name) { return greeting + ' ' + name; };
      * var hi = _.partial(greet, 'hi');
-     * hi('moe');
-     * // => 'hi moe'
+     * hi('fred');
+     * // => 'hi fred'
      */
     function partial(func) {
-      return createBound(func, 16, nativeSlice.call(arguments, 1));
+      return createWrapper(func, 16, slice(arguments, 1));
     }
 
     /**
@@ -5397,7 +5661,7 @@ var global=self;/**
      * // => { '_': _, 'jq': $ }
      */
     function partialRight(func) {
-      return createBound(func, 32, null, nativeSlice.call(arguments, 1));
+      return createWrapper(func, 32, null, slice(arguments, 1));
     }
 
     /**
@@ -5448,8 +5712,7 @@ var global=self;/**
       debounceOptions.maxWait = wait;
       debounceOptions.trailing = trailing;
 
-      var result = debounce(func, wait, debounceOptions);
-      return result;
+      return debounce(func, wait, debounceOptions);
     }
 
     /**
@@ -5466,25 +5729,105 @@ var global=self;/**
      * @returns {Function} Returns the new function.
      * @example
      *
-     * var hello = function(name) { return 'hello ' + name; };
-     * hello = _.wrap(hello, function(func) {
-     *   return 'before, ' + func('moe') + ', after';
+     * var p = _.wrap(_.escape, function(func, text) {
+     *   return '<p>' + func(text) + '</p>';
      * });
-     * hello();
-     * // => 'before, hello moe, after'
+     *
+     * p('Fred, Wilma, & Pebbles');
+     * // => '<p>Fred, Wilma, &amp; Pebbles</p>'
      */
     function wrap(value, wrapper) {
-      if (!isFunction(wrapper)) {
-        throw new TypeError;
-      }
-      return function() {
-        var args = [value];
-        push.apply(args, arguments);
-        return wrapper.apply(this, args);
-      };
+      return createWrapper(wrapper, 16, [value]);
     }
 
     /*--------------------------------------------------------------------------*/
+
+    /**
+     * Creates a function that returns `value`.
+     *
+     * @static
+     * @memberOf _
+     * @category Utilities
+     * @param {*} value The value to return from the new function.
+     * @returns {Function} Returns the new function.
+     * @example
+     *
+     * var object = { 'name': 'fred' };
+     * var getter = _.constant(object);
+     * getter() === object;
+     * // => true
+     */
+    function constant(value) {
+      return function() {
+        return value;
+      };
+    }
+
+    /**
+     * Produces a callback bound to an optional `thisArg`. If `func` is a property
+     * name the created callback will return the property value for a given element.
+     * If `func` is an object the created callback will return `true` for elements
+     * that contain the equivalent object properties, otherwise it will return `false`.
+     *
+     * @static
+     * @memberOf _
+     * @category Utilities
+     * @param {*} [func=identity] The value to convert to a callback.
+     * @param {*} [thisArg] The `this` binding of the created callback.
+     * @param {number} [argCount] The number of arguments the callback accepts.
+     * @returns {Function} Returns a callback function.
+     * @example
+     *
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36 },
+     *   { 'name': 'fred',   'age': 40 }
+     * ];
+     *
+     * // wrap to create custom callback shorthands
+     * _.createCallback = _.wrap(_.createCallback, function(func, callback, thisArg) {
+     *   var match = /^(.+?)__([gl]t)(.+)$/.exec(callback);
+     *   return !match ? func(callback, thisArg) : function(object) {
+     *     return match[2] == 'gt' ? object[match[1]] > match[3] : object[match[1]] < match[3];
+     *   };
+     * });
+     *
+     * _.filter(characters, 'age__gt38');
+     * // => [{ 'name': 'fred', 'age': 40 }]
+     */
+    function createCallback(func, thisArg, argCount) {
+      var type = typeof func;
+      if (func == null || type == 'function') {
+        return baseCreateCallback(func, thisArg, argCount);
+      }
+      // handle "_.pluck" style callback shorthands
+      if (type != 'object') {
+        return property(func);
+      }
+      var props = keys(func),
+          key = props[0],
+          a = func[key];
+
+      // handle "_.where" style callback shorthands
+      if (props.length == 1 && a === a && !isObject(a)) {
+        // fast path the common case of providing an object with a single
+        // property containing a primitive value
+        return function(object) {
+          var b = object[key];
+          return a === b && (a !== 0 || (1 / a == 1 / b));
+        };
+      }
+      return function(object) {
+        var length = props.length,
+            result = false;
+
+        while (length--) {
+          if (!(result = baseIsEqual(object[props[length]], func[props[length]], null, true))) {
+            break;
+          }
+        }
+        return result;
+      };
+    }
 
     /**
      * Converts the characters `&`, `<`, `>`, `"`, and `'` in `string` to their
@@ -5497,8 +5840,8 @@ var global=self;/**
      * @returns {string} Returns the escaped string.
      * @example
      *
-     * _.escape('Moe, Larry & Curly');
-     * // => 'Moe, Larry &amp; Curly'
+     * _.escape('Fred, Wilma, & Pebbles');
+     * // => 'Fred, Wilma, &amp; Pebbles'
      */
     function escape(string) {
       return string == null ? '' : String(string).replace(reUnescapedHtml, escapeHtmlChar);
@@ -5514,8 +5857,8 @@ var global=self;/**
      * @returns {*} Returns `value`.
      * @example
      *
-     * var moe = { 'name': 'moe' };
-     * moe === _.identity(moe);
+     * var object = { 'name': 'fred' };
+     * _.identity(object) === object;
      * // => true
      */
     function identity(value) {
@@ -5523,51 +5866,71 @@ var global=self;/**
     }
 
     /**
-     * Adds function properties of a source object to the `lodash` function and
-     * chainable wrapper.
+     * Adds function properties of a source object to the destination object.
+     * If `object` is a function methods will be added to its prototype as well.
      *
      * @static
      * @memberOf _
      * @category Utilities
-     * @param {Object} object The object of function properties to add to `lodash`.
-     * @param {Object} object The object of function properties to add to `lodash`.
+     * @param {Function|Object} [object=lodash] object The destination object.
+     * @param {Object} source The object of functions to add.
+     * @param {Object} [options] The options object.
+     * @param {boolean} [options.chain=true] Specify whether the functions added are chainable.
      * @example
      *
-     * _.mixin({
-     *   'capitalize': function(string) {
-     *     return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
-     *   }
-     * });
+     * function capitalize(string) {
+     *   return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
+     * }
      *
-     * _.capitalize('moe');
-     * // => 'Moe'
+     * _.mixin({ 'capitalize': capitalize });
+     * _.capitalize('fred');
+     * // => 'Fred'
      *
-     * _('moe').capitalize();
-     * // => 'Moe'
+     * _('fred').capitalize().value();
+     * // => 'Fred'
+     *
+     * _.mixin({ 'capitalize': capitalize }, { 'chain': false });
+     * _('fred').capitalize();
+     * // => 'Fred'
      */
-    function mixin(object, source) {
-      var ctor = object,
-          isFunc = !source || isFunction(ctor);
+    function mixin(object, source, options) {
+      var chain = true,
+          methodNames = source && functions(source);
 
-      if (!source) {
+      if (!source || (!options && !methodNames.length)) {
+        if (options == null) {
+          options = source;
+        }
         ctor = lodashWrapper;
         source = object;
         object = lodash;
+        methodNames = functions(source);
       }
-      forEach(functions(source), function(methodName) {
+      if (options === false) {
+        chain = false;
+      } else if (isObject(options) && 'chain' in options) {
+        chain = options.chain;
+      }
+      var ctor = object,
+          isFunc = isFunction(ctor);
+
+      forEach(methodNames, function(methodName) {
         var func = object[methodName] = source[methodName];
         if (isFunc) {
           ctor.prototype[methodName] = function() {
-            var value = this.__wrapped__,
+            var chainAll = this.__chain__,
+                value = this.__wrapped__,
                 args = [value];
 
             push.apply(args, arguments);
             var result = func.apply(object, args);
-            if (value && typeof value == 'object' && value === result) {
-              return this;
+            if (chain || chainAll) {
+              if (value === result && isObject(result)) {
+                return this;
+              }
+              result = new ctor(result);
+              result.__chain__ = chainAll;
             }
-            result = new ctor(result);
-            result.__chain__ = this.__chain__;
             return result;
           };
         }
@@ -5592,6 +5955,39 @@ var global=self;/**
     }
 
     /**
+     * A no-operation function.
+     *
+     * @static
+     * @memberOf _
+     * @category Utilities
+     * @example
+     *
+     * var object = { 'name': 'fred' };
+     * _.noop(object) === undefined;
+     * // => true
+     */
+    function noop() {
+      // no operation performed
+    }
+
+    /**
+     * Gets the number of milliseconds that have elapsed since the Unix epoch
+     * (1 January 1970 00:00:00 UTC).
+     *
+     * @static
+     * @memberOf _
+     * @category Utilities
+     * @example
+     *
+     * var stamp = _.now();
+     * _.defer(function() { console.log(_.now() - stamp); });
+     * // => logs the number of milliseconds it took for the deferred function to be called
+     */
+    var now = isNative(now = Date.now) && now || function() {
+      return new Date().getTime();
+    };
+
+    /**
      * Converts the given value into an integer of the specified radix.
      * If `radix` is `undefined` or `0` a `radix` of `10` is used unless the
      * `value` is a hexadecimal, in which case a `radix` of `16` is used.
@@ -5611,9 +6007,39 @@ var global=self;/**
      * // => 8
      */
     var parseInt = nativeParseInt(whitespace + '08') == 8 ? nativeParseInt : function(value, radix) {
-      // Firefox and Opera still follow the ES3 specified implementation of `parseInt`
+      // Firefox < 21 and Opera < 15 follow the ES3 specified implementation of `parseInt`
       return nativeParseInt(isString(value) ? value.replace(reLeadingSpacesAndZeros, '') : value, radix || 0);
     };
+
+    /**
+     * Creates a "_.pluck" style function, which returns the `key` value of a
+     * given object.
+     *
+     * @static
+     * @memberOf _
+     * @category Utilities
+     * @param {string} key The name of the property to retrieve.
+     * @returns {Function} Returns the new function.
+     * @example
+     *
+     * var characters = [
+     *   { 'name': 'fred',   'age': 40 },
+     *   { 'name': 'barney', 'age': 36 }
+     * ];
+     *
+     * var getName = _.property('name');
+     *
+     * _.map(characters, getName);
+     * // => ['barney', 'fred']
+     *
+     * _.sortBy(characters, getName);
+     * // => [{ 'name': 'barney', 'age': 36 }, { 'name': 'fred',   'age': 40 }]
+     */
+    function property(key) {
+      return function(object) {
+        return object[key];
+      };
+    }
 
     /**
      * Produces a random number between `min` and `max` (inclusive). If only one
@@ -5666,14 +6092,15 @@ var global=self;/**
       } else {
         max = +max || 0;
       }
-      var rand = nativeRandom();
-      return (floating || min % 1 || max % 1)
-        ? nativeMin(min + (rand * (max - min + parseFloat('1e-' + ((rand +'').length - 1)))), max)
-        : min + floor(rand * (max - min + 1));
+      if (floating || min % 1 || max % 1) {
+        var rand = nativeRandom();
+        return nativeMin(min + (rand * (max - min + parseFloat('1e-' + ((rand +'').length - 1)))), max);
+      }
+      return baseRandom(min, max);
     }
 
     /**
-     * Resolves the value of `property` on `object`. If `property` is a function
+     * Resolves the value of property `key` on `object`. If `key` is a function
      * it will be invoked with the `this` binding of `object` and its result returned,
      * else the property value is returned. If `object` is falsey then `undefined`
      * is returned.
@@ -5682,7 +6109,7 @@ var global=self;/**
      * @memberOf _
      * @category Utilities
      * @param {Object} object The object to inspect.
-     * @param {string} property The property to get the value of.
+     * @param {string} key The name of the property to resolve.
      * @returns {*} Returns the resolved value.
      * @example
      *
@@ -5699,10 +6126,10 @@ var global=self;/**
      * _.result(object, 'stuff');
      * // => 'nonsense'
      */
-    function result(object, property) {
+    function result(object, key) {
       if (object) {
-        var value = object[property];
-        return isFunction(value) ? object[property]() : value;
+        var value = object[key];
+        return isFunction(value) ? object[key]() : value;
       }
     }
 
@@ -5714,7 +6141,7 @@ var global=self;/**
      * debugging. See http://www.html5rocks.com/en/tutorials/developertools/sourcemaps/#toc-sourceurl
      *
      * For more information on precompiling templates see:
-     * http://lodash.com/#custom-builds
+     * http://lodash.com/custom-builds
      *
      * For more information on Chrome extension sandboxes see:
      * http://developer.chrome.com/stable/extensions/sandboxingEval.html
@@ -5737,8 +6164,8 @@ var global=self;/**
      *
      * // using the "interpolate" delimiter to create a compiled template
      * var compiled = _.template('hello <%= name %>');
-     * compiled({ 'name': 'moe' });
-     * // => 'hello moe'
+     * compiled({ 'name': 'fred' });
+     * // => 'hello fred'
      *
      * // using the "escape" delimiter to escape HTML in data property values
      * _.template('<b><%- value %></b>', { 'value': '<script>' });
@@ -5746,16 +6173,16 @@ var global=self;/**
      *
      * // using the "evaluate" delimiter to generate HTML
      * var list = '<% _.forEach(people, function(name) { %><li><%- name %></li><% }); %>';
-     * _.template(list, { 'people': ['moe', 'larry'] });
-     * // => '<li>moe</li><li>larry</li>'
+     * _.template(list, { 'people': ['fred', 'barney'] });
+     * // => '<li>fred</li><li>barney</li>'
      *
      * // using the ES6 delimiter as an alternative to the default "interpolate" delimiter
-     * _.template('hello ${ name }', { 'name': 'curly' });
-     * // => 'hello curly'
+     * _.template('hello ${ name }', { 'name': 'pebbles' });
+     * // => 'hello pebbles'
      *
      * // using the internal `print` function in "evaluate" delimiters
-     * _.template('<% print("hello " + name); %>!', { 'name': 'larry' });
-     * // => 'hello larry!'
+     * _.template('<% print("hello " + name); %>!', { 'name': 'barney' });
+     * // => 'hello barney!'
      *
      * // using a custom template delimiters
      * _.templateSettings = {
@@ -5766,9 +6193,9 @@ var global=self;/**
      * // => 'hello mustache!'
      *
      * // using the `imports` option to import jQuery
-     * var list = '<% $.each(people, function(name) { %><li><%- name %></li><% }); %>';
-     * _.template(list, { 'people': ['moe', 'larry'] }, { 'imports': { '$': jQuery } });
-     * // => '<li>moe</li><li>larry</li>'
+     * var list = '<% jq.each(people, function(name) { %><li><%- name %></li><% }); %>';
+     * _.template(list, { 'people': ['fred', 'barney'] }, { 'imports': { 'jq': jQuery } });
+     * // => '<li>fred</li><li>barney</li>'
      *
      * // using the `sourceURL` option to specify a custom sourceURL for the template
      * var compiled = _.template('hello <%= name %>', null, { 'sourceURL': '/basic/greeting.jst' });
@@ -5798,7 +6225,7 @@ var global=self;/**
       // and Laura Doktorova's doT.js
       // https://github.com/olado/doT
       var settings = lodash.templateSettings;
-      text || (text = '');
+      text = String(text || '');
 
       // avoid missing dependencies when `iteratorTemplate` is not defined
       options = defaults({}, options, settings);
@@ -5939,8 +6366,8 @@ var global=self;/**
      * @returns {string} Returns the unescaped string.
      * @example
      *
-     * _.unescape('Moe, Larry &amp; Curly');
-     * // => 'Moe, Larry & Curly'
+     * _.unescape('Fred, Barney &amp; Pebbles');
+     * // => 'Fred, Barney & Pebbles'
      */
     function unescape(string) {
       return string == null ? '' : String(string).replace(reEscapedHtml, unescapeHtmlChar);
@@ -5980,18 +6407,18 @@ var global=self;/**
      * @returns {Object} Returns the wrapper object.
      * @example
      *
-     * var stooges = [
-     *   { 'name': 'moe', 'age': 40 },
-     *   { 'name': 'larry', 'age': 50 },
-     *   { 'name': 'curly', 'age': 60 }
+     * var characters = [
+     *   { 'name': 'barney',  'age': 36 },
+     *   { 'name': 'fred',    'age': 40 },
+     *   { 'name': 'pebbles', 'age': 1 }
      * ];
      *
-     * var youngest = _.chain(stooges)
+     * var youngest = _.chain(characters)
      *     .sortBy('age')
-     *     .map(function(stooge) { return stooge.name + ' is ' + stooge.age; })
+     *     .map(function(chr) { return chr.name + ' is ' + chr.age; })
      *     .first()
      *     .value();
-     * // => 'moe is 40'
+     * // => 'pebbles is 1'
      */
     function chain(value) {
       value = new lodashWrapper(value);
@@ -6014,12 +6441,10 @@ var global=self;/**
      * @example
      *
      * _([1, 2, 3, 4])
-     *  .filter(function(num) { return num % 2 == 0; })
-     *  .tap(function(array) { console.log(array); })
-     *  .map(function(num) { return num * num; })
+     *  .tap(function(array) { array.pop(); })
+     *  .reverse()
      *  .value();
-     * // => // [2, 4] (logged)
-     * // => [4, 16]
+     * // => [3, 2, 1]
      */
     function tap(value, interceptor) {
       interceptor(value);
@@ -6035,21 +6460,21 @@ var global=self;/**
      * @returns {*} Returns the wrapper object.
      * @example
      *
-     * var stooges = [
-     *   { 'name': 'moe', 'age': 40 },
-     *   { 'name': 'larry', 'age': 50 }
+     * var characters = [
+     *   { 'name': 'barney', 'age': 36 },
+     *   { 'name': 'fred',   'age': 40 }
      * ];
      *
      * // without explicit chaining
-     * _(stooges).first();
-     * // => { 'name': 'moe', 'age': 40 }
+     * _(characters).first();
+     * // => { 'name': 'barney', 'age': 36 }
      *
      * // with explicit chaining
-     * _(stooges).chain()
+     * _(characters).chain()
      *   .first()
      *   .pick('age')
-     *   .value()
-     * // => { 'age': 40 }
+     *   .value();
+     * // => { 'age': 36 }
      */
     function wrapperChain() {
       this.__chain__ = true;
@@ -6101,7 +6526,9 @@ var global=self;/**
     lodash.chain = chain;
     lodash.compact = compact;
     lodash.compose = compose;
+    lodash.constant = constant;
     lodash.countBy = countBy;
+    lodash.create = create;
     lodash.createCallback = createCallback;
     lodash.curry = curry;
     lodash.debounce = debounce;
@@ -6126,6 +6553,7 @@ var global=self;/**
     lodash.invoke = invoke;
     lodash.keys = keys;
     lodash.map = map;
+    lodash.mapValues = mapValues;
     lodash.max = max;
     lodash.memoize = memoize;
     lodash.merge = merge;
@@ -6137,6 +6565,7 @@ var global=self;/**
     lodash.partialRight = partialRight;
     lodash.pick = pick;
     lodash.pluck = pluck;
+    lodash.property = property;
     lodash.pull = pull;
     lodash.range = range;
     lodash.reject = reject;
@@ -6155,6 +6584,7 @@ var global=self;/**
     lodash.where = where;
     lodash.without = without;
     lodash.wrap = wrap;
+    lodash.xor = xor;
     lodash.zip = zip;
     lodash.zipObject = zipObject;
 
@@ -6211,6 +6641,8 @@ var global=self;/**
     lodash.lastIndexOf = lastIndexOf;
     lodash.mixin = mixin;
     lodash.noConflict = noConflict;
+    lodash.noop = noop;
+    lodash.now = now;
     lodash.parseInt = parseInt;
     lodash.random = random;
     lodash.reduce = reduce;
@@ -6234,20 +6666,15 @@ var global=self;/**
     lodash.include = contains;
     lodash.inject = reduce;
 
-    forOwn(lodash, function(func, methodName) {
-      if (!lodash.prototype[methodName]) {
-        lodash.prototype[methodName] = function() {
-          var args = [this.__wrapped__],
-              chainAll = this.__chain__;
-
-          push.apply(args, arguments);
-          var result = func.apply(lodash, args);
-          return chainAll
-            ? new lodashWrapper(result, chainAll)
-            : result;
-        };
-      }
-    });
+    mixin(function() {
+      var source = {}
+      forOwn(lodash, function(func, methodName) {
+        if (!lodash.prototype[methodName]) {
+          source[methodName] = func;
+        }
+      });
+      return source;
+    }(), false);
 
     /*--------------------------------------------------------------------------*/
 
@@ -6283,7 +6710,7 @@ var global=self;/**
      * @memberOf _
      * @type string
      */
-    lodash.VERSION = '2.2.1';
+    lodash.VERSION = '2.4.1';
 
     // add "Chaining" functions to the wrapper
     lodash.prototype.chain = wrapperChain;
@@ -6304,7 +6731,7 @@ var global=self;/**
       };
     });
 
-    // add `Array` functions that return the wrapped value
+    // add `Array` functions that return the existing wrapped value
     forEach(['push', 'reverse', 'sort', 'unshift'], function(methodName) {
       var func = arrayRef[methodName];
       lodash.prototype[methodName] = function() {
@@ -6329,12 +6756,11 @@ var global=self;/**
   // expose Lo-Dash
   var _ = runInContext();
 
-  // some AMD build optimizers, like r.js, check for condition patterns like the following:
+  // some AMD build optimizers like r.js check for condition patterns like the following:
   if (typeof define == 'function' && typeof define.amd == 'object' && define.amd) {
     // Expose Lo-Dash to the global object even when an AMD loader is present in
-    // case Lo-Dash was injected by a third-party script and not intended to be
-    // loaded as a module. The global assignment can be reverted in the Lo-Dash
-    // module by its `noConflict()` method.
+    // case Lo-Dash is loaded with a RequireJS shim config.
+    // See http://requirejs.org/docs/api.html#config-shim
     root._ = _;
 
     // define as an anonymous module so, through path mapping, it can be
@@ -6360,7 +6786,714 @@ var global=self;/**
   }
 }.call(this));
 
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{}],2:[function(require,module,exports){
+/**
+ * @author Richard Janicek http://janicek.co @RJanicek
+ *
+ * Adds a noise texture to your pixi.js displayObjects.
+ */
+
+
+var glsl = "precision mediump float;\r\nvarying vec2 vTextureCoord;\r\nvarying vec4 vColor;\r\nuniform sampler2D uSampler;\r\nuniform vec4 noiseLevelRGBA;\r\n\r\n// The interval is from 0.0 to 1.0\r\nfloat rand(vec2 co) {\r\n      return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);\r\n}\r\n\r\nvoid main(void) {\r\n      gl_FragColor = texture2D(uSampler, vTextureCoord);\r\n\r\n      float randomDelta = (rand(vTextureCoord) * 2.0) - 1.0;\r\n\r\n      gl_FragColor.r += noiseLevelRGBA.r * randomDelta;\r\n      gl_FragColor.g += noiseLevelRGBA.g * randomDelta;\r\n      gl_FragColor.b += noiseLevelRGBA.b * randomDelta;\r\n      gl_FragColor.a += noiseLevelRGBA.a * randomDelta;\r\n}";
+var PIXI = require('pixi.js');
+
+var Filter = function() {
+    PIXI.AbstractFilter.call(this);
+
+    this.passes = [this];
+
+    this.uniforms = {
+        noiseLevelRGBA: { type: '4fv', value: [0.05, 0.05, 0.05, 0] },
+    };
+
+    this.fragmentSrc = [glsl];
+};
+
+Filter.prototype = Object.create(PIXI.AbstractFilter.prototype);
+Filter.prototype.constructor = Filter;
+
+// How much noise to apply. Array of RGBA floats with values between 0 and 1.
+Object.defineProperty(Filter.prototype, 'noiseLevelRGBA', {
+    get: function() { return this.uniforms.noiseLevelRGBA.value; },
+    set: function(value) { this.uniforms.noiseLevelRGBA.value = value; }
+});
+
+module.exports = Filter;
+
+},{"pixi.js":3}],3:[function(require,module,exports){
+/**
+ * @license
+ * pixi.js - v1.6.0
+ * Copyright (c) 2012-2014, Mat Groves
+ * http://goodboydigital.com/
+ *
+ * Compiled: 2014-07-18
+ *
+ * pixi.js is licensed under the MIT License.
+ * http://www.opensource.org/licenses/mit-license.php
+ */
+(function(){var a=this,b=b||{};b.WEBGL_RENDERER=0,b.CANVAS_RENDERER=1,b.VERSION="v1.6.1",b.blendModes={NORMAL:0,ADD:1,MULTIPLY:2,SCREEN:3,OVERLAY:4,DARKEN:5,LIGHTEN:6,COLOR_DODGE:7,COLOR_BURN:8,HARD_LIGHT:9,SOFT_LIGHT:10,DIFFERENCE:11,EXCLUSION:12,HUE:13,SATURATION:14,COLOR:15,LUMINOSITY:16},b.scaleModes={DEFAULT:0,LINEAR:0,NEAREST:1},b._UID=0,"undefined"!=typeof Float32Array?(b.Float32Array=Float32Array,b.Uint16Array=Uint16Array):(b.Float32Array=Array,b.Uint16Array=Array),b.INTERACTION_FREQUENCY=30,b.AUTO_PREVENT_DEFAULT=!0,b.RAD_TO_DEG=180/Math.PI,b.DEG_TO_RAD=Math.PI/180,b.dontSayHello=!1,b.sayHello=function(a){if(!b.dontSayHello){if(navigator.userAgent.toLowerCase().indexOf("chrome")>-1){var c=["%c %c %c Pixi.js "+b.VERSION+" - "+a+"  %c  %c  http://www.pixijs.com/  %c %c ♥%c♥%c♥ ","background: #ff66a5","background: #ff66a5","color: #ff66a5; background: #030307;","background: #ff66a5","background: #ffc3dc","background: #ff66a5","color: #ff2424; background: #fff","color: #ff2424; background: #fff","color: #ff2424; background: #fff"];console.log.apply(console,c)}else window.console&&console.log("Pixi.js "+b.VERSION+" - http://www.pixijs.com/");b.dontSayHello=!0}},b.Point=function(a,b){this.x=a||0,this.y=b||0},b.Point.prototype.clone=function(){return new b.Point(this.x,this.y)},b.Point.prototype.set=function(a,b){this.x=a||0,this.y=b||(0!==b?this.x:0)},b.Point.prototype.constructor=b.Point,b.Rectangle=function(a,b,c,d){this.x=a||0,this.y=b||0,this.width=c||0,this.height=d||0},b.Rectangle.prototype.clone=function(){return new b.Rectangle(this.x,this.y,this.width,this.height)},b.Rectangle.prototype.contains=function(a,b){if(this.width<=0||this.height<=0)return!1;var c=this.x;if(a>=c&&a<=c+this.width){var d=this.y;if(b>=d&&b<=d+this.height)return!0}return!1},b.Rectangle.prototype.constructor=b.Rectangle,b.EmptyRectangle=new b.Rectangle(0,0,0,0),b.Polygon=function(a){if(a instanceof Array||(a=Array.prototype.slice.call(arguments)),"number"==typeof a[0]){for(var c=[],d=0,e=a.length;e>d;d+=2)c.push(new b.Point(a[d],a[d+1]));a=c}this.points=a},b.Polygon.prototype.clone=function(){for(var a=[],c=0;c<this.points.length;c++)a.push(this.points[c].clone());return new b.Polygon(a)},b.Polygon.prototype.contains=function(a,b){for(var c=!1,d=0,e=this.points.length-1;d<this.points.length;e=d++){var f=this.points[d].x,g=this.points[d].y,h=this.points[e].x,i=this.points[e].y,j=g>b!=i>b&&(h-f)*(b-g)/(i-g)+f>a;j&&(c=!c)}return c},b.Polygon.prototype.constructor=b.Polygon,b.Circle=function(a,b,c){this.x=a||0,this.y=b||0,this.radius=c||0},b.Circle.prototype.clone=function(){return new b.Circle(this.x,this.y,this.radius)},b.Circle.prototype.contains=function(a,b){if(this.radius<=0)return!1;var c=this.x-a,d=this.y-b,e=this.radius*this.radius;return c*=c,d*=d,e>=c+d},b.Circle.prototype.getBounds=function(){return new b.Rectangle(this.x-this.radius,this.y-this.radius,this.width,this.height)},b.Circle.prototype.constructor=b.Circle,b.Ellipse=function(a,b,c,d){this.x=a||0,this.y=b||0,this.width=c||0,this.height=d||0},b.Ellipse.prototype.clone=function(){return new b.Ellipse(this.x,this.y,this.width,this.height)},b.Ellipse.prototype.contains=function(a,b){if(this.width<=0||this.height<=0)return!1;var c=(a-this.x)/this.width,d=(b-this.y)/this.height;return c*=c,d*=d,1>=c+d},b.Ellipse.prototype.getBounds=function(){return new b.Rectangle(this.x-this.width,this.y-this.height,this.width,this.height)},b.Ellipse.prototype.constructor=b.Ellipse,b.Matrix=function(){this.a=1,this.b=0,this.c=0,this.d=1,this.tx=0,this.ty=0},b.Matrix.prototype.fromArray=function(a){this.a=a[0],this.b=a[1],this.c=a[3],this.d=a[4],this.tx=a[2],this.ty=a[5]},b.Matrix.prototype.toArray=function(a){this.array||(this.array=new Float32Array(9));var b=this.array;return a?(b[0]=this.a,b[1]=this.c,b[2]=0,b[3]=this.b,b[4]=this.d,b[5]=0,b[6]=this.tx,b[7]=this.ty,b[8]=1):(b[0]=this.a,b[1]=this.b,b[2]=this.tx,b[3]=this.c,b[4]=this.d,b[5]=this.ty,b[6]=0,b[7]=0,b[8]=1),b},b.identityMatrix=new b.Matrix,b.determineMatrixArrayType=function(){return"undefined"!=typeof Float32Array?Float32Array:Array},b.Matrix2=b.determineMatrixArrayType(),b.DisplayObject=function(){this.position=new b.Point,this.scale=new b.Point(1,1),this.pivot=new b.Point(0,0),this.rotation=0,this.alpha=1,this.visible=!0,this.hitArea=null,this.buttonMode=!1,this.renderable=!1,this.parent=null,this.stage=null,this.worldAlpha=1,this._interactive=!1,this.defaultCursor="pointer",this.worldTransform=new b.Matrix,this.color=[],this.dynamic=!0,this._sr=0,this._cr=1,this.filterArea=null,this._bounds=new b.Rectangle(0,0,1,1),this._currentBounds=null,this._mask=null,this._cacheAsBitmap=!1,this._cacheIsDirty=!1},b.DisplayObject.prototype.constructor=b.DisplayObject,b.DisplayObject.prototype.setInteractive=function(a){this.interactive=a},Object.defineProperty(b.DisplayObject.prototype,"interactive",{get:function(){return this._interactive},set:function(a){this._interactive=a,this.stage&&(this.stage.dirty=!0)}}),Object.defineProperty(b.DisplayObject.prototype,"worldVisible",{get:function(){var a=this;do{if(!a.visible)return!1;a=a.parent}while(a);return!0}}),Object.defineProperty(b.DisplayObject.prototype,"mask",{get:function(){return this._mask},set:function(a){this._mask&&(this._mask.isMask=!1),this._mask=a,this._mask&&(this._mask.isMask=!0)}}),Object.defineProperty(b.DisplayObject.prototype,"filters",{get:function(){return this._filters},set:function(a){if(a){for(var b=[],c=0;c<a.length;c++)for(var d=a[c].passes,e=0;e<d.length;e++)b.push(d[e]);this._filterBlock={target:this,filterPasses:b}}this._filters=a}}),Object.defineProperty(b.DisplayObject.prototype,"cacheAsBitmap",{get:function(){return this._cacheAsBitmap},set:function(a){this._cacheAsBitmap!==a&&(a?this._generateCachedSprite():this._destroyCachedSprite(),this._cacheAsBitmap=a)}}),b.DisplayObject.prototype.updateTransform=function(){this.rotation!==this.rotationCache&&(this.rotationCache=this.rotation,this._sr=Math.sin(this.rotation),this._cr=Math.cos(this.rotation));var a=this.parent.worldTransform,b=this.worldTransform,c=this.pivot.x,d=this.pivot.y,e=this._cr*this.scale.x,f=-this._sr*this.scale.y,g=this._sr*this.scale.x,h=this._cr*this.scale.y,i=this.position.x-e*c-d*f,j=this.position.y-h*d-c*g,k=a.a,l=a.b,m=a.c,n=a.d;b.a=k*e+l*g,b.b=k*f+l*h,b.tx=k*i+l*j+a.tx,b.c=m*e+n*g,b.d=m*f+n*h,b.ty=m*i+n*j+a.ty,this.worldAlpha=this.alpha*this.parent.worldAlpha},b.DisplayObject.prototype.getBounds=function(a){return a=a,b.EmptyRectangle},b.DisplayObject.prototype.getLocalBounds=function(){return this.getBounds(b.identityMatrix)},b.DisplayObject.prototype.setStageReference=function(a){this.stage=a,this._interactive&&(this.stage.dirty=!0)},b.DisplayObject.prototype.generateTexture=function(a){var c=this.getLocalBounds(),d=new b.RenderTexture(0|c.width,0|c.height,a);return d.render(this,new b.Point(-c.x,-c.y)),d},b.DisplayObject.prototype.updateCache=function(){this._generateCachedSprite()},b.DisplayObject.prototype._renderCachedSprite=function(a){this._cachedSprite.worldAlpha=this.worldAlpha,a.gl?b.Sprite.prototype._renderWebGL.call(this._cachedSprite,a):b.Sprite.prototype._renderCanvas.call(this._cachedSprite,a)},b.DisplayObject.prototype._generateCachedSprite=function(){this._cacheAsBitmap=!1;var a=this.getLocalBounds();if(this._cachedSprite)this._cachedSprite.texture.resize(0|a.width,0|a.height);else{var c=new b.RenderTexture(0|a.width,0|a.height);this._cachedSprite=new b.Sprite(c),this._cachedSprite.worldTransform=this.worldTransform}var d=this._filters;this._filters=null,this._cachedSprite.filters=d,this._cachedSprite.texture.render(this,new b.Point(-a.x,-a.y)),this._cachedSprite.anchor.x=-(a.x/a.width),this._cachedSprite.anchor.y=-(a.y/a.height),this._filters=d,this._cacheAsBitmap=!0},b.DisplayObject.prototype._destroyCachedSprite=function(){this._cachedSprite&&(this._cachedSprite.texture.destroy(!0),this._cachedSprite=null)},b.DisplayObject.prototype._renderWebGL=function(a){a=a},b.DisplayObject.prototype._renderCanvas=function(a){a=a},Object.defineProperty(b.DisplayObject.prototype,"x",{get:function(){return this.position.x},set:function(a){this.position.x=a}}),Object.defineProperty(b.DisplayObject.prototype,"y",{get:function(){return this.position.y},set:function(a){this.position.y=a}}),b.DisplayObjectContainer=function(){b.DisplayObject.call(this),this.children=[]},b.DisplayObjectContainer.prototype=Object.create(b.DisplayObject.prototype),b.DisplayObjectContainer.prototype.constructor=b.DisplayObjectContainer,Object.defineProperty(b.DisplayObjectContainer.prototype,"width",{get:function(){return this.scale.x*this.getLocalBounds().width},set:function(a){var b=this.getLocalBounds().width;this.scale.x=0!==b?a/(b/this.scale.x):1,this._width=a}}),Object.defineProperty(b.DisplayObjectContainer.prototype,"height",{get:function(){return this.scale.y*this.getLocalBounds().height},set:function(a){var b=this.getLocalBounds().height;this.scale.y=0!==b?a/(b/this.scale.y):1,this._height=a}}),b.DisplayObjectContainer.prototype.addChild=function(a){return this.addChildAt(a,this.children.length)},b.DisplayObjectContainer.prototype.addChildAt=function(a,b){if(b>=0&&b<=this.children.length)return a.parent&&a.parent.removeChild(a),a.parent=this,this.children.splice(b,0,a),this.stage&&a.setStageReference(this.stage),a;throw new Error(a+" The index "+b+" supplied is out of bounds "+this.children.length)},b.DisplayObjectContainer.prototype.swapChildren=function(a,b){if(a!==b){var c=this.children.indexOf(a),d=this.children.indexOf(b);if(0>c||0>d)throw new Error("swapChildren: Both the supplied DisplayObjects must be a child of the caller.");this.children[c]=b,this.children[d]=a}},b.DisplayObjectContainer.prototype.getChildAt=function(a){if(a>=0&&a<this.children.length)return this.children[a];throw new Error("Supplied index does not exist in the child list, or the supplied DisplayObject must be a child of the caller")},b.DisplayObjectContainer.prototype.removeChild=function(a){return this.removeChildAt(this.children.indexOf(a))},b.DisplayObjectContainer.prototype.removeChildAt=function(a){var b=this.getChildAt(a);return this.stage&&b.removeStageReference(),b.parent=void 0,this.children.splice(a,1),b},b.DisplayObjectContainer.prototype.removeChildren=function(a,b){var c=a||0,d="number"==typeof b?b:this.children.length,e=d-c;if(e>0&&d>=e){for(var f=this.children.splice(c,e),g=0;g<f.length;g++){var h=f[g];this.stage&&h.removeStageReference(),h.parent=void 0}return f}throw new Error("Range Error, numeric values are outside the acceptable range")},b.DisplayObjectContainer.prototype.updateTransform=function(){if(this.visible&&(b.DisplayObject.prototype.updateTransform.call(this),!this._cacheAsBitmap))for(var a=0,c=this.children.length;c>a;a++)this.children[a].updateTransform()},b.DisplayObjectContainer.prototype.getBounds=function(a){if(0===this.children.length)return b.EmptyRectangle;if(a){var c=this.worldTransform;this.worldTransform=a,this.updateTransform(),this.worldTransform=c}for(var d,e,f,g=1/0,h=1/0,i=-1/0,j=-1/0,k=!1,l=0,m=this.children.length;m>l;l++){var n=this.children[l];n.visible&&(k=!0,d=this.children[l].getBounds(a),g=g<d.x?g:d.x,h=h<d.y?h:d.y,e=d.width+d.x,f=d.height+d.y,i=i>e?i:e,j=j>f?j:f)}if(!k)return b.EmptyRectangle;var o=this._bounds;return o.x=g,o.y=h,o.width=i-g,o.height=j-h,o},b.DisplayObjectContainer.prototype.getLocalBounds=function(){var a=this.worldTransform;this.worldTransform=b.identityMatrix;for(var c=0,d=this.children.length;d>c;c++)this.children[c].updateTransform();var e=this.getBounds();return this.worldTransform=a,e},b.DisplayObjectContainer.prototype.setStageReference=function(a){this.stage=a,this._interactive&&(this.stage.dirty=!0);for(var b=0,c=this.children.length;c>b;b++){var d=this.children[b];d.setStageReference(a)}},b.DisplayObjectContainer.prototype.removeStageReference=function(){for(var a=0,b=this.children.length;b>a;a++){var c=this.children[a];c.removeStageReference()}this._interactive&&(this.stage.dirty=!0),this.stage=null},b.DisplayObjectContainer.prototype._renderWebGL=function(a){if(this.visible&&!(this.alpha<=0)){if(this._cacheAsBitmap)return this._renderCachedSprite(a),void 0;var b,c;if(this._mask||this._filters){for(this._filters&&(a.spriteBatch.flush(),a.filterManager.pushFilter(this._filterBlock)),this._mask&&(a.spriteBatch.stop(),a.maskManager.pushMask(this.mask,a),a.spriteBatch.start()),b=0,c=this.children.length;c>b;b++)this.children[b]._renderWebGL(a);a.spriteBatch.stop(),this._mask&&a.maskManager.popMask(this._mask,a),this._filters&&a.filterManager.popFilter(),a.spriteBatch.start()}else for(b=0,c=this.children.length;c>b;b++)this.children[b]._renderWebGL(a)}},b.DisplayObjectContainer.prototype._renderCanvas=function(a){if(this.visible!==!1&&0!==this.alpha){if(this._cacheAsBitmap)return this._renderCachedSprite(a),void 0;this._mask&&a.maskManager.pushMask(this._mask,a.context);for(var b=0,c=this.children.length;c>b;b++){var d=this.children[b];d._renderCanvas(a)}this._mask&&a.maskManager.popMask(a.context)}},b.Sprite=function(a){b.DisplayObjectContainer.call(this),this.anchor=new b.Point,this.texture=a,this._width=0,this._height=0,this.tint=16777215,this.blendMode=b.blendModes.NORMAL,a.baseTexture.hasLoaded?this.onTextureUpdate():(this.onTextureUpdateBind=this.onTextureUpdate.bind(this),this.texture.addEventListener("update",this.onTextureUpdateBind)),this.renderable=!0},b.Sprite.prototype=Object.create(b.DisplayObjectContainer.prototype),b.Sprite.prototype.constructor=b.Sprite,Object.defineProperty(b.Sprite.prototype,"width",{get:function(){return this.scale.x*this.texture.frame.width},set:function(a){this.scale.x=a/this.texture.frame.width,this._width=a}}),Object.defineProperty(b.Sprite.prototype,"height",{get:function(){return this.scale.y*this.texture.frame.height},set:function(a){this.scale.y=a/this.texture.frame.height,this._height=a}}),b.Sprite.prototype.setTexture=function(a){this.texture=a,this.cachedTint=16777215},b.Sprite.prototype.onTextureUpdate=function(){this._width&&(this.scale.x=this._width/this.texture.frame.width),this._height&&(this.scale.y=this._height/this.texture.frame.height)},b.Sprite.prototype.getBounds=function(a){var b=this.texture.frame.width,c=this.texture.frame.height,d=b*(1-this.anchor.x),e=b*-this.anchor.x,f=c*(1-this.anchor.y),g=c*-this.anchor.y,h=a||this.worldTransform,i=h.a,j=h.c,k=h.b,l=h.d,m=h.tx,n=h.ty,o=i*e+k*g+m,p=l*g+j*e+n,q=i*d+k*g+m,r=l*g+j*d+n,s=i*d+k*f+m,t=l*f+j*d+n,u=i*e+k*f+m,v=l*f+j*e+n,w=-1/0,x=-1/0,y=1/0,z=1/0;y=y>o?o:y,y=y>q?q:y,y=y>s?s:y,y=y>u?u:y,z=z>p?p:z,z=z>r?r:z,z=z>t?t:z,z=z>v?v:z,w=o>w?o:w,w=q>w?q:w,w=s>w?s:w,w=u>w?u:w,x=p>x?p:x,x=r>x?r:x,x=t>x?t:x,x=v>x?v:x;var A=this._bounds;return A.x=y,A.width=w-y,A.y=z,A.height=x-z,this._currentBounds=A,A},b.Sprite.prototype._renderWebGL=function(a){if(this.visible&&!(this.alpha<=0)){var b,c;if(this._mask||this._filters){var d=a.spriteBatch;for(this._filters&&(d.flush(),a.filterManager.pushFilter(this._filterBlock)),this._mask&&(d.stop(),a.maskManager.pushMask(this.mask,a),d.start()),d.render(this),b=0,c=this.children.length;c>b;b++)this.children[b]._renderWebGL(a);d.stop(),this._mask&&a.maskManager.popMask(this._mask,a),this._filters&&a.filterManager.popFilter(),d.start()}else for(a.spriteBatch.render(this),b=0,c=this.children.length;c>b;b++)this.children[b]._renderWebGL(a)}},b.Sprite.prototype._renderCanvas=function(a){if(this.visible!==!1&&0!==this.alpha){if(this.blendMode!==a.currentBlendMode&&(a.currentBlendMode=this.blendMode,a.context.globalCompositeOperation=b.blendModesCanvas[a.currentBlendMode]),this._mask&&a.maskManager.pushMask(this._mask,a.context),this.texture.valid){a.context.globalAlpha=this.worldAlpha,a.roundPixels?a.context.setTransform(this.worldTransform.a,this.worldTransform.c,this.worldTransform.b,this.worldTransform.d,0|this.worldTransform.tx,0|this.worldTransform.ty):a.context.setTransform(this.worldTransform.a,this.worldTransform.c,this.worldTransform.b,this.worldTransform.d,this.worldTransform.tx,this.worldTransform.ty),a.smoothProperty&&a.scaleMode!==this.texture.baseTexture.scaleMode&&(a.scaleMode=this.texture.baseTexture.scaleMode,a.context[a.smoothProperty]=a.scaleMode===b.scaleModes.LINEAR);var c=this.texture.trim?this.texture.trim.x-this.anchor.x*this.texture.trim.width:this.anchor.x*-this.texture.frame.width,d=this.texture.trim?this.texture.trim.y-this.anchor.y*this.texture.trim.height:this.anchor.y*-this.texture.frame.height;16777215!==this.tint?(this.cachedTint!==this.tint&&(this.cachedTint=this.tint,this.tintedTexture=b.CanvasTinter.getTintedTexture(this,this.tint)),a.context.drawImage(this.tintedTexture,0,0,this.texture.crop.width,this.texture.crop.height,c,d,this.texture.crop.width,this.texture.crop.height)):a.context.drawImage(this.texture.baseTexture.source,this.texture.crop.x,this.texture.crop.y,this.texture.crop.width,this.texture.crop.height,c,d,this.texture.crop.width,this.texture.crop.height)}for(var e=0,f=this.children.length;f>e;e++)this.children[e]._renderCanvas(a);this._mask&&a.maskManager.popMask(a.context)}},b.Sprite.fromFrame=function(a){var c=b.TextureCache[a];if(!c)throw new Error('The frameId "'+a+'" does not exist in the texture cache'+this);return new b.Sprite(c)},b.Sprite.fromImage=function(a,c,d){var e=b.Texture.fromImage(a,c,d);return new b.Sprite(e)},b.SpriteBatch=function(a){b.DisplayObjectContainer.call(this),this.textureThing=a,this.ready=!1},b.SpriteBatch.prototype=Object.create(b.DisplayObjectContainer.prototype),b.SpriteBatch.constructor=b.SpriteBatch,b.SpriteBatch.prototype.initWebGL=function(a){this.fastSpriteBatch=new b.WebGLFastSpriteBatch(a),this.ready=!0},b.SpriteBatch.prototype.updateTransform=function(){b.DisplayObject.prototype.updateTransform.call(this)},b.SpriteBatch.prototype._renderWebGL=function(a){!this.visible||this.alpha<=0||!this.children.length||(this.ready||this.initWebGL(a.gl),a.spriteBatch.stop(),a.shaderManager.setShader(a.shaderManager.fastShader),this.fastSpriteBatch.begin(this,a),this.fastSpriteBatch.render(this),a.spriteBatch.start())},b.SpriteBatch.prototype._renderCanvas=function(a){var c=a.context;c.globalAlpha=this.worldAlpha,b.DisplayObject.prototype.updateTransform.call(this);for(var d=this.worldTransform,e=!0,f=0;f<this.children.length;f++){var g=this.children[f];if(g.visible){var h=g.texture,i=h.frame;if(c.globalAlpha=this.worldAlpha*g.alpha,g.rotation%(2*Math.PI)===0)e&&(c.setTransform(d.a,d.c,d.b,d.d,d.tx,d.ty),e=!1),c.drawImage(h.baseTexture.source,i.x,i.y,i.width,i.height,g.anchor.x*-i.width*g.scale.x+g.position.x+.5|0,g.anchor.y*-i.height*g.scale.y+g.position.y+.5|0,i.width*g.scale.x,i.height*g.scale.y);else{e||(e=!0),b.DisplayObject.prototype.updateTransform.call(g);var j=g.worldTransform;a.roundPixels?c.setTransform(j.a,j.c,j.b,j.d,0|j.tx,0|j.ty):c.setTransform(j.a,j.c,j.b,j.d,j.tx,j.ty),c.drawImage(h.baseTexture.source,i.x,i.y,i.width,i.height,g.anchor.x*-i.width+.5|0,g.anchor.y*-i.height+.5|0,i.width,i.height)}}}},b.MovieClip=function(a){b.Sprite.call(this,a[0]),this.textures=a,this.animationSpeed=1,this.loop=!0,this.onComplete=null,this.currentFrame=0,this.playing=!1},b.MovieClip.prototype=Object.create(b.Sprite.prototype),b.MovieClip.prototype.constructor=b.MovieClip,Object.defineProperty(b.MovieClip.prototype,"totalFrames",{get:function(){return this.textures.length}}),b.MovieClip.prototype.stop=function(){this.playing=!1},b.MovieClip.prototype.play=function(){this.playing=!0},b.MovieClip.prototype.gotoAndStop=function(a){this.playing=!1,this.currentFrame=a;var b=this.currentFrame+.5|0;this.setTexture(this.textures[b%this.textures.length])},b.MovieClip.prototype.gotoAndPlay=function(a){this.currentFrame=a,this.playing=!0},b.MovieClip.prototype.updateTransform=function(){if(b.Sprite.prototype.updateTransform.call(this),this.playing){this.currentFrame+=this.animationSpeed;var a=this.currentFrame+.5|0;this.currentFrame=this.currentFrame%this.textures.length,this.loop||a<this.textures.length?this.setTexture(this.textures[a%this.textures.length]):a>=this.textures.length&&(this.gotoAndStop(this.textures.length-1),this.onComplete&&this.onComplete())}},b.MovieClip.fromFrames=function(a){for(var c=[],d=0;d<a.length;d++)c.push(new b.Texture.fromFrame(a[d]));return new b.MovieClip(c)},b.MovieClip.fromImages=function(a){for(var c=[],d=0;d<a.length;d++)c.push(new b.Texture.fromImage(a[d]));return new b.MovieClip(c)},b.FilterBlock=function(){this.visible=!0,this.renderable=!0},b.Text=function(a,c){this.canvas=document.createElement("canvas"),this.context=this.canvas.getContext("2d"),b.Sprite.call(this,b.Texture.fromCanvas(this.canvas)),this.setText(a),this.setStyle(c)},b.Text.prototype=Object.create(b.Sprite.prototype),b.Text.prototype.constructor=b.Text,Object.defineProperty(b.Text.prototype,"width",{get:function(){return this.dirty&&(this.updateText(),this.dirty=!1),this.scale.x*this.texture.frame.width},set:function(a){this.scale.x=a/this.texture.frame.width,this._width=a}}),Object.defineProperty(b.Text.prototype,"height",{get:function(){return this.dirty&&(this.updateText(),this.dirty=!1),this.scale.y*this.texture.frame.height},set:function(a){this.scale.y=a/this.texture.frame.height,this._height=a}}),b.Text.prototype.setStyle=function(a){a=a||{},a.font=a.font||"bold 20pt Arial",a.fill=a.fill||"black",a.align=a.align||"left",a.stroke=a.stroke||"black",a.strokeThickness=a.strokeThickness||0,a.wordWrap=a.wordWrap||!1,a.wordWrapWidth=a.wordWrapWidth||100,a.wordWrapWidth=a.wordWrapWidth||100,a.dropShadow=a.dropShadow||!1,a.dropShadowAngle=a.dropShadowAngle||Math.PI/6,a.dropShadowDistance=a.dropShadowDistance||4,a.dropShadowColor=a.dropShadowColor||"black",this.style=a,this.dirty=!0},b.Text.prototype.setText=function(a){this.text=a.toString()||" ",this.dirty=!0},b.Text.prototype.updateText=function(){this.context.font=this.style.font;var a=this.text;this.style.wordWrap&&(a=this.wordWrap(this.text));for(var b=a.split(/(?:\r\n|\r|\n)/),c=[],d=0,e=0;e<b.length;e++){var f=this.context.measureText(b[e]).width;c[e]=f,d=Math.max(d,f)}var g=d+this.style.strokeThickness;this.style.dropShadow&&(g+=this.style.dropShadowDistance),this.canvas.width=g+this.context.lineWidth;var h=this.determineFontHeight("font: "+this.style.font+";")+this.style.strokeThickness,i=h*b.length;this.style.dropShadow&&(i+=this.style.dropShadowDistance),this.canvas.height=i,navigator.isCocoonJS&&this.context.clearRect(0,0,this.canvas.width,this.canvas.height),this.context.font=this.style.font,this.context.strokeStyle=this.style.stroke,this.context.lineWidth=this.style.strokeThickness,this.context.textBaseline="top";var j,k;if(this.style.dropShadow){this.context.fillStyle=this.style.dropShadowColor;var l=Math.sin(this.style.dropShadowAngle)*this.style.dropShadowDistance,m=Math.cos(this.style.dropShadowAngle)*this.style.dropShadowDistance;for(e=0;e<b.length;e++)j=this.style.strokeThickness/2,k=this.style.strokeThickness/2+e*h,"right"===this.style.align?j+=d-c[e]:"center"===this.style.align&&(j+=(d-c[e])/2),this.style.fill&&this.context.fillText(b[e],j+l,k+m)}for(this.context.fillStyle=this.style.fill,e=0;e<b.length;e++)j=this.style.strokeThickness/2,k=this.style.strokeThickness/2+e*h,"right"===this.style.align?j+=d-c[e]:"center"===this.style.align&&(j+=(d-c[e])/2),this.style.stroke&&this.style.strokeThickness&&this.context.strokeText(b[e],j,k),this.style.fill&&this.context.fillText(b[e],j,k);this.updateTexture()},b.Text.prototype.updateTexture=function(){this.texture.baseTexture.width=this.canvas.width,this.texture.baseTexture.height=this.canvas.height,this.texture.crop.width=this.texture.frame.width=this.canvas.width,this.texture.crop.height=this.texture.frame.height=this.canvas.height,this._width=this.canvas.width,this._height=this.canvas.height,this.requiresUpdate=!0},b.Text.prototype._renderWebGL=function(a){this.requiresUpdate&&(this.requiresUpdate=!1,b.updateWebGLTexture(this.texture.baseTexture,a.gl)),b.Sprite.prototype._renderWebGL.call(this,a)},b.Text.prototype.updateTransform=function(){this.dirty&&(this.updateText(),this.dirty=!1),b.Sprite.prototype.updateTransform.call(this)},b.Text.prototype.determineFontHeight=function(a){var c=b.Text.heightCache[a];if(!c){var d=document.getElementsByTagName("body")[0],e=document.createElement("div"),f=document.createTextNode("M");e.appendChild(f),e.setAttribute("style",a+";position:absolute;top:0;left:0"),d.appendChild(e),c=e.offsetHeight,b.Text.heightCache[a]=c,d.removeChild(e)}return c},b.Text.prototype.wordWrap=function(a){for(var b="",c=a.split("\n"),d=0;d<c.length;d++){for(var e=this.style.wordWrapWidth,f=c[d].split(" "),g=0;g<f.length;g++){var h=this.context.measureText(f[g]).width,i=h+this.context.measureText(" ").width;0===g||i>e?(g>0&&(b+="\n"),b+=f[g],e=this.style.wordWrapWidth-h):(e-=i,b+=" "+f[g])}d<c.length-1&&(b+="\n")}return b},b.Text.prototype.destroy=function(a){this.context=null,this.canvas=null,this.texture.destroy(void 0===a?!0:a)},b.Text.heightCache={},b.BitmapText=function(a,c){b.DisplayObjectContainer.call(this),this._pool=[],this.setText(a),this.setStyle(c),this.updateText(),this.dirty=!1},b.BitmapText.prototype=Object.create(b.DisplayObjectContainer.prototype),b.BitmapText.prototype.constructor=b.BitmapText,b.BitmapText.prototype.setText=function(a){this.text=a||" ",this.dirty=!0},b.BitmapText.prototype.setStyle=function(a){a=a||{},a.align=a.align||"left",this.style=a;var c=a.font.split(" ");this.fontName=c[c.length-1],this.fontSize=c.length>=2?parseInt(c[c.length-2],10):b.BitmapText.fonts[this.fontName].size,this.dirty=!0,this.tint=a.tint},b.BitmapText.prototype.updateText=function(){for(var a=b.BitmapText.fonts[this.fontName],c=new b.Point,d=null,e=[],f=0,g=[],h=0,i=this.fontSize/a.size,j=0;j<this.text.length;j++){var k=this.text.charCodeAt(j);if(/(?:\r\n|\r|\n)/.test(this.text.charAt(j)))g.push(c.x),f=Math.max(f,c.x),h++,c.x=0,c.y+=a.lineHeight,d=null;else{var l=a.chars[k];l&&(d&&l[d]&&(c.x+=l.kerning[d]),e.push({texture:l.texture,line:h,charCode:k,position:new b.Point(c.x+l.xOffset,c.y+l.yOffset)}),c.x+=l.xAdvance,d=k)}}g.push(c.x),f=Math.max(f,c.x);var m=[];for(j=0;h>=j;j++){var n=0;"right"===this.style.align?n=f-g[j]:"center"===this.style.align&&(n=(f-g[j])/2),m.push(n)}var o=this.children.length,p=e.length,q=this.tint||16777215;for(j=0;p>j;j++){var r=o>j?this.children[j]:this._pool.pop();r?r.setTexture(e[j].texture):r=new b.Sprite(e[j].texture),r.position.x=(e[j].position.x+m[e[j].line])*i,r.position.y=e[j].position.y*i,r.scale.x=r.scale.y=i,r.tint=q,r.parent||this.addChild(r)}for(;this.children.length>p;){var s=this.getChildAt(this.children.length-1);this._pool.push(s),this.removeChild(s)}this.textWidth=f*i,this.textHeight=(c.y+a.lineHeight)*i},b.BitmapText.prototype.updateTransform=function(){this.dirty&&(this.updateText(),this.dirty=!1),b.DisplayObjectContainer.prototype.updateTransform.call(this)},b.BitmapText.fonts={},b.InteractionData=function(){this.global=new b.Point,this.target=null,this.originalEvent=null},b.InteractionData.prototype.getLocalPosition=function(a){var c=a.worldTransform,d=this.global,e=c.a,f=c.b,g=c.tx,h=c.c,i=c.d,j=c.ty,k=1/(e*i+f*-h);return new b.Point(i*k*d.x+-f*k*d.y+(j*f-g*i)*k,e*k*d.y+-h*k*d.x+(-j*e+g*h)*k)},b.InteractionData.prototype.constructor=b.InteractionData,b.InteractionManager=function(a){this.stage=a,this.mouse=new b.InteractionData,this.touchs={},this.tempPoint=new b.Point,this.mouseoverEnabled=!0,this.pool=[],this.interactiveItems=[],this.interactionDOMElement=null,this.onMouseMove=this.onMouseMove.bind(this),this.onMouseDown=this.onMouseDown.bind(this),this.onMouseOut=this.onMouseOut.bind(this),this.onMouseUp=this.onMouseUp.bind(this),this.onTouchStart=this.onTouchStart.bind(this),this.onTouchEnd=this.onTouchEnd.bind(this),this.onTouchMove=this.onTouchMove.bind(this),this.last=0,this.currentCursorStyle="inherit",this.mouseOut=!1},b.InteractionManager.prototype.constructor=b.InteractionManager,b.InteractionManager.prototype.collectInteractiveSprite=function(a,b){for(var c=a.children,d=c.length,e=d-1;e>=0;e--){var f=c[e];f._interactive?(b.interactiveChildren=!0,this.interactiveItems.push(f),f.children.length>0&&this.collectInteractiveSprite(f,f)):(f.__iParent=null,f.children.length>0&&this.collectInteractiveSprite(f,b))}},b.InteractionManager.prototype.setTarget=function(a){this.target=a,null===this.interactionDOMElement&&this.setTargetDomElement(a.view)},b.InteractionManager.prototype.setTargetDomElement=function(a){this.removeEvents(),window.navigator.msPointerEnabled&&(a.style["-ms-content-zooming"]="none",a.style["-ms-touch-action"]="none"),this.interactionDOMElement=a,a.addEventListener("mousemove",this.onMouseMove,!0),a.addEventListener("mousedown",this.onMouseDown,!0),a.addEventListener("mouseout",this.onMouseOut,!0),a.addEventListener("touchstart",this.onTouchStart,!0),a.addEventListener("touchend",this.onTouchEnd,!0),a.addEventListener("touchmove",this.onTouchMove,!0),window.addEventListener("mouseup",this.onMouseUp,!0)},b.InteractionManager.prototype.removeEvents=function(){this.interactionDOMElement&&(this.interactionDOMElement.style["-ms-content-zooming"]="",this.interactionDOMElement.style["-ms-touch-action"]="",this.interactionDOMElement.removeEventListener("mousemove",this.onMouseMove,!0),this.interactionDOMElement.removeEventListener("mousedown",this.onMouseDown,!0),this.interactionDOMElement.removeEventListener("mouseout",this.onMouseOut,!0),this.interactionDOMElement.removeEventListener("touchstart",this.onTouchStart,!0),this.interactionDOMElement.removeEventListener("touchend",this.onTouchEnd,!0),this.interactionDOMElement.removeEventListener("touchmove",this.onTouchMove,!0),this.interactionDOMElement=null,window.removeEventListener("mouseup",this.onMouseUp,!0))},b.InteractionManager.prototype.update=function(){if(this.target){var a=Date.now(),c=a-this.last;if(c=c*b.INTERACTION_FREQUENCY/1e3,!(1>c)){this.last=a;var d=0;this.dirty&&this.rebuildInteractiveGraph();var e=this.interactiveItems.length,f="inherit",g=!1;for(d=0;e>d;d++){var h=this.interactiveItems[d];h.__hit=this.hitTest(h,this.mouse),this.mouse.target=h,h.__hit&&!g?(h.buttonMode&&(f=h.defaultCursor),h.interactiveChildren||(g=!0),h.__isOver||(h.mouseover&&h.mouseover(this.mouse),h.__isOver=!0)):h.__isOver&&(h.mouseout&&h.mouseout(this.mouse),h.__isOver=!1)}this.currentCursorStyle!==f&&(this.currentCursorStyle=f,this.interactionDOMElement.style.cursor=f)}}},b.InteractionManager.prototype.rebuildInteractiveGraph=function(){this.dirty=!1;for(var a=this.interactiveItems.length,b=0;a>b;b++)this.interactiveItems[b].interactiveChildren=!1;this.interactiveItems=[],this.stage.interactive&&this.interactiveItems.push(this.stage),this.collectInteractiveSprite(this.stage,this.stage)},b.InteractionManager.prototype.onMouseMove=function(a){this.dirty&&this.rebuildInteractiveGraph(),this.mouse.originalEvent=a||window.event;var b=this.interactionDOMElement.getBoundingClientRect();this.mouse.global.x=(a.clientX-b.left)*(this.target.width/b.width),this.mouse.global.y=(a.clientY-b.top)*(this.target.height/b.height);for(var c=this.interactiveItems.length,d=0;c>d;d++){var e=this.interactiveItems[d];e.mousemove&&e.mousemove(this.mouse)}},b.InteractionManager.prototype.onMouseDown=function(a){this.dirty&&this.rebuildInteractiveGraph(),this.mouse.originalEvent=a||window.event,b.AUTO_PREVENT_DEFAULT&&this.mouse.originalEvent.preventDefault();for(var c=this.interactiveItems.length,d=0;c>d;d++){var e=this.interactiveItems[d];if((e.mousedown||e.click)&&(e.__mouseIsDown=!0,e.__hit=this.hitTest(e,this.mouse),e.__hit&&(e.mousedown&&e.mousedown(this.mouse),e.__isDown=!0,!e.interactiveChildren)))break}},b.InteractionManager.prototype.onMouseOut=function(){this.dirty&&this.rebuildInteractiveGraph();var a=this.interactiveItems.length;this.interactionDOMElement.style.cursor="inherit";for(var b=0;a>b;b++){var c=this.interactiveItems[b];c.__isOver&&(this.mouse.target=c,c.mouseout&&c.mouseout(this.mouse),c.__isOver=!1)}this.mouseOut=!0,this.mouse.global.x=-1e4,this.mouse.global.y=-1e4},b.InteractionManager.prototype.onMouseUp=function(a){this.dirty&&this.rebuildInteractiveGraph(),this.mouse.originalEvent=a||window.event;
+for(var b=this.interactiveItems.length,c=!1,d=0;b>d;d++){var e=this.interactiveItems[d];e.__hit=this.hitTest(e,this.mouse),e.__hit&&!c?(e.mouseup&&e.mouseup(this.mouse),e.__isDown&&e.click&&e.click(this.mouse),e.interactiveChildren||(c=!0)):e.__isDown&&e.mouseupoutside&&e.mouseupoutside(this.mouse),e.__isDown=!1}},b.InteractionManager.prototype.hitTest=function(a,c){var d=c.global;if(!a.worldVisible)return!1;var e=a instanceof b.Sprite,f=a.worldTransform,g=f.a,h=f.b,i=f.tx,j=f.c,k=f.d,l=f.ty,m=1/(g*k+h*-j),n=k*m*d.x+-h*m*d.y+(l*h-i*k)*m,o=g*m*d.y+-j*m*d.x+(-l*g+i*j)*m;if(c.target=a,a.hitArea&&a.hitArea.contains)return a.hitArea.contains(n,o)?(c.target=a,!0):!1;if(e){var p,q=a.texture.frame.width,r=a.texture.frame.height,s=-q*a.anchor.x;if(n>s&&s+q>n&&(p=-r*a.anchor.y,o>p&&p+r>o))return c.target=a,!0}for(var t=a.children.length,u=0;t>u;u++){var v=a.children[u],w=this.hitTest(v,c);if(w)return c.target=a,!0}return!1},b.InteractionManager.prototype.onTouchMove=function(a){this.dirty&&this.rebuildInteractiveGraph();var b,c=this.interactionDOMElement.getBoundingClientRect(),d=a.changedTouches,e=0;for(e=0;e<d.length;e++){var f=d[e];b=this.touchs[f.identifier],b.originalEvent=a||window.event,b.global.x=(f.clientX-c.left)*(this.target.width/c.width),b.global.y=(f.clientY-c.top)*(this.target.height/c.height),navigator.isCocoonJS&&(b.global.x=f.clientX,b.global.y=f.clientY);for(var g=0;g<this.interactiveItems.length;g++){var h=this.interactiveItems[g];h.touchmove&&h.__touchData&&h.__touchData[f.identifier]&&h.touchmove(b)}}},b.InteractionManager.prototype.onTouchStart=function(a){this.dirty&&this.rebuildInteractiveGraph();var c=this.interactionDOMElement.getBoundingClientRect();b.AUTO_PREVENT_DEFAULT&&a.preventDefault();for(var d=a.changedTouches,e=0;e<d.length;e++){var f=d[e],g=this.pool.pop();g||(g=new b.InteractionData),g.originalEvent=a||window.event,this.touchs[f.identifier]=g,g.global.x=(f.clientX-c.left)*(this.target.width/c.width),g.global.y=(f.clientY-c.top)*(this.target.height/c.height),navigator.isCocoonJS&&(g.global.x=f.clientX,g.global.y=f.clientY);for(var h=this.interactiveItems.length,i=0;h>i;i++){var j=this.interactiveItems[i];if((j.touchstart||j.tap)&&(j.__hit=this.hitTest(j,g),j.__hit&&(j.touchstart&&j.touchstart(g),j.__isDown=!0,j.__touchData=j.__touchData||{},j.__touchData[f.identifier]=g,!j.interactiveChildren)))break}}},b.InteractionManager.prototype.onTouchEnd=function(a){this.dirty&&this.rebuildInteractiveGraph();for(var b=this.interactionDOMElement.getBoundingClientRect(),c=a.changedTouches,d=0;d<c.length;d++){var e=c[d],f=this.touchs[e.identifier],g=!1;f.global.x=(e.clientX-b.left)*(this.target.width/b.width),f.global.y=(e.clientY-b.top)*(this.target.height/b.height),navigator.isCocoonJS&&(f.global.x=e.clientX,f.global.y=e.clientY);for(var h=this.interactiveItems.length,i=0;h>i;i++){var j=this.interactiveItems[i];j.__touchData&&j.__touchData[e.identifier]&&(j.__hit=this.hitTest(j,j.__touchData[e.identifier]),f.originalEvent=a||window.event,(j.touchend||j.tap)&&(j.__hit&&!g?(j.touchend&&j.touchend(f),j.__isDown&&j.tap&&j.tap(f),j.interactiveChildren||(g=!0)):j.__isDown&&j.touchendoutside&&j.touchendoutside(f),j.__isDown=!1),j.__touchData[e.identifier]=null)}this.pool.push(f),this.touchs[e.identifier]=null}},b.Stage=function(a){b.DisplayObjectContainer.call(this),this.worldTransform=new b.Matrix,this.interactive=!0,this.interactionManager=new b.InteractionManager(this),this.dirty=!0,this.stage=this,this.stage.hitArea=new b.Rectangle(0,0,1e5,1e5),this.setBackgroundColor(a)},b.Stage.prototype=Object.create(b.DisplayObjectContainer.prototype),b.Stage.prototype.constructor=b.Stage,b.Stage.prototype.setInteractionDelegate=function(a){this.interactionManager.setTargetDomElement(a)},b.Stage.prototype.updateTransform=function(){this.worldAlpha=1;for(var a=0,b=this.children.length;b>a;a++)this.children[a].updateTransform();this.dirty&&(this.dirty=!1,this.interactionManager.dirty=!0),this.interactive&&this.interactionManager.update()},b.Stage.prototype.setBackgroundColor=function(a){this.backgroundColor=a||0,this.backgroundColorSplit=b.hex2rgb(this.backgroundColor);var c=this.backgroundColor.toString(16);c="000000".substr(0,6-c.length)+c,this.backgroundColorString="#"+c},b.Stage.prototype.getMousePosition=function(){return this.interactionManager.mouse.global};for(var c=0,d=["ms","moz","webkit","o"],e=0;e<d.length&&!window.requestAnimationFrame;++e)window.requestAnimationFrame=window[d[e]+"RequestAnimationFrame"],window.cancelAnimationFrame=window[d[e]+"CancelAnimationFrame"]||window[d[e]+"CancelRequestAnimationFrame"];window.requestAnimationFrame||(window.requestAnimationFrame=function(a){var b=(new Date).getTime(),d=Math.max(0,16-(b-c)),e=window.setTimeout(function(){a(b+d)},d);return c=b+d,e}),window.cancelAnimationFrame||(window.cancelAnimationFrame=function(a){clearTimeout(a)}),window.requestAnimFrame=window.requestAnimationFrame,b.hex2rgb=function(a){return[(a>>16&255)/255,(a>>8&255)/255,(255&a)/255]},b.rgb2hex=function(a){return(255*a[0]<<16)+(255*a[1]<<8)+255*a[2]},"function"!=typeof Function.prototype.bind&&(Function.prototype.bind=function(){var a=Array.prototype.slice;return function(b){function c(){var f=e.concat(a.call(arguments));d.apply(this instanceof c?this:b,f)}var d=this,e=a.call(arguments,1);if("function"!=typeof d)throw new TypeError;return c.prototype=function f(a){return a&&(f.prototype=a),this instanceof f?void 0:new f}(d.prototype),c}}()),b.AjaxRequest=function(){var a=["Msxml2.XMLHTTP.6.0","Msxml2.XMLHTTP.3.0","Microsoft.XMLHTTP"];if(!window.ActiveXObject)return window.XMLHttpRequest?new window.XMLHttpRequest:!1;for(var b=0;b<a.length;b++)try{return new window.ActiveXObject(a[b])}catch(c){}},b.canUseNewCanvasBlendModes=function(){var a=document.createElement("canvas");a.width=1,a.height=1;var b=a.getContext("2d");return b.fillStyle="#000",b.fillRect(0,0,1,1),b.globalCompositeOperation="multiply",b.fillStyle="#fff",b.fillRect(0,0,1,1),0===b.getImageData(0,0,1,1).data[0]},b.getNextPowerOfTwo=function(a){if(a>0&&0===(a&a-1))return a;for(var b=1;a>b;)b<<=1;return b},b.EventTarget=function(){var a={};this.addEventListener=this.on=function(b,c){void 0===a[b]&&(a[b]=[]),-1===a[b].indexOf(c)&&a[b].unshift(c)},this.dispatchEvent=this.emit=function(b){if(a[b.type]&&a[b.type].length)for(var c=a[b.type].length-1;c>=0;c--)a[b.type][c](b)},this.removeEventListener=this.off=function(b,c){if(void 0!==a[b]){var d=a[b].indexOf(c);-1!==d&&a[b].splice(d,1)}},this.removeAllEventListeners=function(b){var c=a[b];c&&(c.length=0)}},b.autoDetectRenderer=function(a,c,d,e,f){a||(a=800),c||(c=600);var g=function(){try{var a=document.createElement("canvas");return!!window.WebGLRenderingContext&&(a.getContext("webgl")||a.getContext("experimental-webgl"))}catch(b){return!1}}();return g?new b.WebGLRenderer(a,c,d,e,f):new b.CanvasRenderer(a,c,d,e)},b.autoDetectRecommendedRenderer=function(a,c,d,e,f){a||(a=800),c||(c=600);var g=function(){try{var a=document.createElement("canvas");return!!window.WebGLRenderingContext&&(a.getContext("webgl")||a.getContext("experimental-webgl"))}catch(b){return!1}}(),h=/Android/i.test(navigator.userAgent);return g&&!h?new b.WebGLRenderer(a,c,d,e,f):new b.CanvasRenderer(a,c,d,e)},b.PolyK={},b.PolyK.Triangulate=function(a){var c=!0,d=a.length>>1;if(3>d)return[];for(var e=[],f=[],g=0;d>g;g++)f.push(g);g=0;for(var h=d;h>3;){var i=f[(g+0)%h],j=f[(g+1)%h],k=f[(g+2)%h],l=a[2*i],m=a[2*i+1],n=a[2*j],o=a[2*j+1],p=a[2*k],q=a[2*k+1],r=!1;if(b.PolyK._convex(l,m,n,o,p,q,c)){r=!0;for(var s=0;h>s;s++){var t=f[s];if(t!==i&&t!==j&&t!==k&&b.PolyK._PointInTriangle(a[2*t],a[2*t+1],l,m,n,o,p,q)){r=!1;break}}}if(r)e.push(i,j,k),f.splice((g+1)%h,1),h--,g=0;else if(g++>3*h){if(!c)return window.console.log("PIXI Warning: shape too complex to fill"),[];for(e=[],f=[],g=0;d>g;g++)f.push(g);g=0,h=d,c=!1}}return e.push(f[0],f[1],f[2]),e},b.PolyK._PointInTriangle=function(a,b,c,d,e,f,g,h){var i=g-c,j=h-d,k=e-c,l=f-d,m=a-c,n=b-d,o=i*i+j*j,p=i*k+j*l,q=i*m+j*n,r=k*k+l*l,s=k*m+l*n,t=1/(o*r-p*p),u=(r*q-p*s)*t,v=(o*s-p*q)*t;return u>=0&&v>=0&&1>u+v},b.PolyK._convex=function(a,b,c,d,e,f,g){return(b-d)*(e-c)+(c-a)*(f-d)>=0===g},b.initDefaultShaders=function(){},b.CompileVertexShader=function(a,c){return b._CompileShader(a,c,a.VERTEX_SHADER)},b.CompileFragmentShader=function(a,c){return b._CompileShader(a,c,a.FRAGMENT_SHADER)},b._CompileShader=function(a,b,c){var d=b.join("\n"),e=a.createShader(c);return a.shaderSource(e,d),a.compileShader(e),a.getShaderParameter(e,a.COMPILE_STATUS)?e:(window.console.log(a.getShaderInfoLog(e)),null)},b.compileProgram=function(a,c,d){var e=b.CompileFragmentShader(a,d),f=b.CompileVertexShader(a,c),g=a.createProgram();return a.attachShader(g,f),a.attachShader(g,e),a.linkProgram(g),a.getProgramParameter(g,a.LINK_STATUS)||window.console.log("Could not initialise shaders"),g},b.PixiShader=function(a){this._UID=b._UID++,this.gl=a,this.program=null,this.fragmentSrc=["precision lowp float;","varying vec2 vTextureCoord;","varying vec4 vColor;","uniform sampler2D uSampler;","void main(void) {","   gl_FragColor = texture2D(uSampler, vTextureCoord) * vColor ;","}"],this.textureCount=0,this.attributes=[],this.init()},b.PixiShader.prototype.init=function(){var a=this.gl,c=b.compileProgram(a,this.vertexSrc||b.PixiShader.defaultVertexSrc,this.fragmentSrc);a.useProgram(c),this.uSampler=a.getUniformLocation(c,"uSampler"),this.projectionVector=a.getUniformLocation(c,"projectionVector"),this.offsetVector=a.getUniformLocation(c,"offsetVector"),this.dimensions=a.getUniformLocation(c,"dimensions"),this.aVertexPosition=a.getAttribLocation(c,"aVertexPosition"),this.aTextureCoord=a.getAttribLocation(c,"aTextureCoord"),this.colorAttribute=a.getAttribLocation(c,"aColor"),-1===this.colorAttribute&&(this.colorAttribute=2),this.attributes=[this.aVertexPosition,this.aTextureCoord,this.colorAttribute];for(var d in this.uniforms)this.uniforms[d].uniformLocation=a.getUniformLocation(c,d);this.initUniforms(),this.program=c},b.PixiShader.prototype.initUniforms=function(){this.textureCount=1;var a,b=this.gl;for(var c in this.uniforms){a=this.uniforms[c];var d=a.type;"sampler2D"===d?(a._init=!1,null!==a.value&&this.initSampler2D(a)):"mat2"===d||"mat3"===d||"mat4"===d?(a.glMatrix=!0,a.glValueLength=1,"mat2"===d?a.glFunc=b.uniformMatrix2fv:"mat3"===d?a.glFunc=b.uniformMatrix3fv:"mat4"===d&&(a.glFunc=b.uniformMatrix4fv)):(a.glFunc=b["uniform"+d],a.glValueLength="2f"===d||"2i"===d?2:"3f"===d||"3i"===d?3:"4f"===d||"4i"===d?4:1)}},b.PixiShader.prototype.initSampler2D=function(a){if(a.value&&a.value.baseTexture&&a.value.baseTexture.hasLoaded){var b=this.gl;if(b.activeTexture(b["TEXTURE"+this.textureCount]),b.bindTexture(b.TEXTURE_2D,a.value.baseTexture._glTextures[b.id]),a.textureData){var c=a.textureData,d=c.magFilter?c.magFilter:b.LINEAR,e=c.minFilter?c.minFilter:b.LINEAR,f=c.wrapS?c.wrapS:b.CLAMP_TO_EDGE,g=c.wrapT?c.wrapT:b.CLAMP_TO_EDGE,h=c.luminance?b.LUMINANCE:b.RGBA;if(c.repeat&&(f=b.REPEAT,g=b.REPEAT),b.pixelStorei(b.UNPACK_FLIP_Y_WEBGL,!!c.flipY),c.width){var i=c.width?c.width:512,j=c.height?c.height:2,k=c.border?c.border:0;b.texImage2D(b.TEXTURE_2D,0,h,i,j,k,h,b.UNSIGNED_BYTE,null)}else b.texImage2D(b.TEXTURE_2D,0,h,b.RGBA,b.UNSIGNED_BYTE,a.value.baseTexture.source);b.texParameteri(b.TEXTURE_2D,b.TEXTURE_MAG_FILTER,d),b.texParameteri(b.TEXTURE_2D,b.TEXTURE_MIN_FILTER,e),b.texParameteri(b.TEXTURE_2D,b.TEXTURE_WRAP_S,f),b.texParameteri(b.TEXTURE_2D,b.TEXTURE_WRAP_T,g)}b.uniform1i(a.uniformLocation,this.textureCount),a._init=!0,this.textureCount++}},b.PixiShader.prototype.syncUniforms=function(){this.textureCount=1;var a,c=this.gl;for(var d in this.uniforms)a=this.uniforms[d],1===a.glValueLength?a.glMatrix===!0?a.glFunc.call(c,a.uniformLocation,a.transpose,a.value):a.glFunc.call(c,a.uniformLocation,a.value):2===a.glValueLength?a.glFunc.call(c,a.uniformLocation,a.value.x,a.value.y):3===a.glValueLength?a.glFunc.call(c,a.uniformLocation,a.value.x,a.value.y,a.value.z):4===a.glValueLength?a.glFunc.call(c,a.uniformLocation,a.value.x,a.value.y,a.value.z,a.value.w):"sampler2D"===a.type&&(a._init?(c.activeTexture(c["TEXTURE"+this.textureCount]),c.bindTexture(c.TEXTURE_2D,a.value.baseTexture._glTextures[c.id]||b.createWebGLTexture(a.value.baseTexture,c)),c.uniform1i(a.uniformLocation,this.textureCount),this.textureCount++):this.initSampler2D(a))},b.PixiShader.prototype.destroy=function(){this.gl.deleteProgram(this.program),this.uniforms=null,this.gl=null,this.attributes=null},b.PixiShader.defaultVertexSrc=["attribute vec2 aVertexPosition;","attribute vec2 aTextureCoord;","attribute vec2 aColor;","uniform vec2 projectionVector;","uniform vec2 offsetVector;","varying vec2 vTextureCoord;","varying vec4 vColor;","const vec2 center = vec2(-1.0, 1.0);","void main(void) {","   gl_Position = vec4( ((aVertexPosition + offsetVector) / projectionVector) + center , 0.0, 1.0);","   vTextureCoord = aTextureCoord;","   vec3 color = mod(vec3(aColor.y/65536.0, aColor.y/256.0, aColor.y), 256.0) / 256.0;","   vColor = vec4(color * aColor.x, aColor.x);","}"],b.PixiFastShader=function(a){this._UID=b._UID++,this.gl=a,this.program=null,this.fragmentSrc=["precision lowp float;","varying vec2 vTextureCoord;","varying float vColor;","uniform sampler2D uSampler;","void main(void) {","   gl_FragColor = texture2D(uSampler, vTextureCoord) * vColor ;","}"],this.vertexSrc=["attribute vec2 aVertexPosition;","attribute vec2 aPositionCoord;","attribute vec2 aScale;","attribute float aRotation;","attribute vec2 aTextureCoord;","attribute float aColor;","uniform vec2 projectionVector;","uniform vec2 offsetVector;","uniform mat3 uMatrix;","varying vec2 vTextureCoord;","varying float vColor;","const vec2 center = vec2(-1.0, 1.0);","void main(void) {","   vec2 v;","   vec2 sv = aVertexPosition * aScale;","   v.x = (sv.x) * cos(aRotation) - (sv.y) * sin(aRotation);","   v.y = (sv.x) * sin(aRotation) + (sv.y) * cos(aRotation);","   v = ( uMatrix * vec3(v + aPositionCoord , 1.0) ).xy ;","   gl_Position = vec4( ( v / projectionVector) + center , 0.0, 1.0);","   vTextureCoord = aTextureCoord;","   vColor = aColor;","}"],this.textureCount=0,this.init()},b.PixiFastShader.prototype.init=function(){var a=this.gl,c=b.compileProgram(a,this.vertexSrc,this.fragmentSrc);a.useProgram(c),this.uSampler=a.getUniformLocation(c,"uSampler"),this.projectionVector=a.getUniformLocation(c,"projectionVector"),this.offsetVector=a.getUniformLocation(c,"offsetVector"),this.dimensions=a.getUniformLocation(c,"dimensions"),this.uMatrix=a.getUniformLocation(c,"uMatrix"),this.aVertexPosition=a.getAttribLocation(c,"aVertexPosition"),this.aPositionCoord=a.getAttribLocation(c,"aPositionCoord"),this.aScale=a.getAttribLocation(c,"aScale"),this.aRotation=a.getAttribLocation(c,"aRotation"),this.aTextureCoord=a.getAttribLocation(c,"aTextureCoord"),this.colorAttribute=a.getAttribLocation(c,"aColor"),-1===this.colorAttribute&&(this.colorAttribute=2),this.attributes=[this.aVertexPosition,this.aPositionCoord,this.aScale,this.aRotation,this.aTextureCoord,this.colorAttribute],this.program=c},b.PixiFastShader.prototype.destroy=function(){this.gl.deleteProgram(this.program),this.uniforms=null,this.gl=null,this.attributes=null},b.StripShader=function(a){this._UID=b._UID++,this.gl=a,this.program=null,this.fragmentSrc=["precision mediump float;","varying vec2 vTextureCoord;","uniform float alpha;","uniform sampler2D uSampler;","void main(void) {","   gl_FragColor = texture2D(uSampler, vec2(vTextureCoord.x, vTextureCoord.y));","}"],this.vertexSrc=["attribute vec2 aVertexPosition;","attribute vec2 aTextureCoord;","uniform mat3 translationMatrix;","uniform vec2 projectionVector;","uniform vec2 offsetVector;","varying vec2 vTextureCoord;","void main(void) {","   vec3 v = translationMatrix * vec3(aVertexPosition , 1.0);","   v -= offsetVector.xyx;","   gl_Position = vec4( v.x / projectionVector.x -1.0, v.y / -projectionVector.y + 1.0 , 0.0, 1.0);","   vTextureCoord = aTextureCoord;","}"],this.init()},b.StripShader.prototype.init=function(){var a=this.gl,c=b.compileProgram(a,this.vertexSrc,this.fragmentSrc);a.useProgram(c),this.uSampler=a.getUniformLocation(c,"uSampler"),this.projectionVector=a.getUniformLocation(c,"projectionVector"),this.offsetVector=a.getUniformLocation(c,"offsetVector"),this.colorAttribute=a.getAttribLocation(c,"aColor"),this.aVertexPosition=a.getAttribLocation(c,"aVertexPosition"),this.aTextureCoord=a.getAttribLocation(c,"aTextureCoord"),this.attributes=[this.aVertexPosition,this.aTextureCoord],this.translationMatrix=a.getUniformLocation(c,"translationMatrix"),this.alpha=a.getUniformLocation(c,"alpha"),this.program=c},b.PrimitiveShader=function(a){this._UID=b._UID++,this.gl=a,this.program=null,this.fragmentSrc=["precision mediump float;","varying vec4 vColor;","void main(void) {","   gl_FragColor = vColor;","}"],this.vertexSrc=["attribute vec2 aVertexPosition;","attribute vec4 aColor;","uniform mat3 translationMatrix;","uniform vec2 projectionVector;","uniform vec2 offsetVector;","uniform float alpha;","uniform vec3 tint;","varying vec4 vColor;","void main(void) {","   vec3 v = translationMatrix * vec3(aVertexPosition , 1.0);","   v -= offsetVector.xyx;","   gl_Position = vec4( v.x / projectionVector.x -1.0, v.y / -projectionVector.y + 1.0 , 0.0, 1.0);","   vColor = aColor * vec4(tint * alpha, alpha);","}"],this.init()},b.PrimitiveShader.prototype.init=function(){var a=this.gl,c=b.compileProgram(a,this.vertexSrc,this.fragmentSrc);a.useProgram(c),this.projectionVector=a.getUniformLocation(c,"projectionVector"),this.offsetVector=a.getUniformLocation(c,"offsetVector"),this.tintColor=a.getUniformLocation(c,"tint"),this.aVertexPosition=a.getAttribLocation(c,"aVertexPosition"),this.colorAttribute=a.getAttribLocation(c,"aColor"),this.attributes=[this.aVertexPosition,this.colorAttribute],this.translationMatrix=a.getUniformLocation(c,"translationMatrix"),this.alpha=a.getUniformLocation(c,"alpha"),this.program=c},b.PrimitiveShader.prototype.destroy=function(){this.gl.deleteProgram(this.program),this.uniforms=null,this.gl=null,this.attribute=null},b.ComplexPrimitiveShader=function(a){this._UID=b._UID++,this.gl=a,this.program=null,this.fragmentSrc=["precision mediump float;","varying vec4 vColor;","void main(void) {","   gl_FragColor = vColor;","}"],this.vertexSrc=["attribute vec2 aVertexPosition;","uniform mat3 translationMatrix;","uniform vec2 projectionVector;","uniform vec2 offsetVector;","uniform vec3 tint;","uniform float alpha;","uniform vec3 color;","varying vec4 vColor;","void main(void) {","   vec3 v = translationMatrix * vec3(aVertexPosition , 1.0);","   v -= offsetVector.xyx;","   gl_Position = vec4( v.x / projectionVector.x -1.0, v.y / -projectionVector.y + 1.0 , 0.0, 1.0);","   vColor = vec4(color * alpha * tint, alpha);","}"],this.init()},b.ComplexPrimitiveShader.prototype.init=function(){var a=this.gl,c=b.compileProgram(a,this.vertexSrc,this.fragmentSrc);a.useProgram(c),this.projectionVector=a.getUniformLocation(c,"projectionVector"),this.offsetVector=a.getUniformLocation(c,"offsetVector"),this.tintColor=a.getUniformLocation(c,"tint"),this.color=a.getUniformLocation(c,"color"),this.aVertexPosition=a.getAttribLocation(c,"aVertexPosition"),this.attributes=[this.aVertexPosition,this.colorAttribute],this.translationMatrix=a.getUniformLocation(c,"translationMatrix"),this.alpha=a.getUniformLocation(c,"alpha"),this.program=c},b.ComplexPrimitiveShader.prototype.destroy=function(){this.gl.deleteProgram(this.program),this.uniforms=null,this.gl=null,this.attribute=null},b.WebGLGraphics=function(){},b.WebGLGraphics.renderGraphics=function(a,c){var d,e=c.gl,f=c.projection,g=c.offset,h=c.shaderManager.primitiveShader;a.dirty&&b.WebGLGraphics.updateGraphics(a,e);for(var i=a._webGL[e.id],j=0;j<i.data.length;j++)1===i.data[j].mode?(d=i.data[j],c.stencilManager.pushStencil(a,d,c),e.drawElements(e.TRIANGLE_FAN,4,e.UNSIGNED_SHORT,2*(d.indices.length-4)),c.stencilManager.popStencil(a,d,c),this.last=d.mode):(d=i.data[j],c.shaderManager.setShader(h),h=c.shaderManager.primitiveShader,e.uniformMatrix3fv(h.translationMatrix,!1,a.worldTransform.toArray(!0)),e.uniform2f(h.projectionVector,f.x,-f.y),e.uniform2f(h.offsetVector,-g.x,-g.y),e.uniform3fv(h.tintColor,b.hex2rgb(a.tint)),e.uniform1f(h.alpha,a.worldAlpha),e.bindBuffer(e.ARRAY_BUFFER,d.buffer),e.vertexAttribPointer(h.aVertexPosition,2,e.FLOAT,!1,24,0),e.vertexAttribPointer(h.colorAttribute,4,e.FLOAT,!1,24,8),e.bindBuffer(e.ELEMENT_ARRAY_BUFFER,d.indexBuffer),e.drawElements(e.TRIANGLE_STRIP,d.indices.length,e.UNSIGNED_SHORT,0))},b.WebGLGraphics.updateGraphics=function(a,c){var d=a._webGL[c.id];d||(d=a._webGL[c.id]={lastIndex:0,data:[],gl:c}),a.dirty=!1;var e;if(a.clearDirty){for(a.clearDirty=!1,e=0;e<d.data.length;e++){var f=d.data[e];f.reset(),b.WebGLGraphics.graphicsDataPool.push(f)}d.data=[],d.lastIndex=0}var g;for(e=d.lastIndex;e<a.graphicsData.length;e++){var h=a.graphicsData[e];h.type===b.Graphics.POLY?(h.fill&&h.points.length>6&&(h.points.length>10?(g=b.WebGLGraphics.switchMode(d,1),b.WebGLGraphics.buildComplexPoly(h,g)):(g=b.WebGLGraphics.switchMode(d,0),b.WebGLGraphics.buildPoly(h,g))),h.lineWidth>0&&(g=b.WebGLGraphics.switchMode(d,0),b.WebGLGraphics.buildLine(h,g))):(g=b.WebGLGraphics.switchMode(d,0),h.type===b.Graphics.RECT?b.WebGLGraphics.buildRectangle(h,g):h.type===b.Graphics.CIRC||h.type===b.Graphics.ELIP?b.WebGLGraphics.buildCircle(h,g):h.type===b.Graphics.RREC&&b.WebGLGraphics.buildRoundedRectangle(h,g)),d.lastIndex++}for(e=0;e<d.data.length;e++)g=d.data[e],g.dirty&&g.upload()},b.WebGLGraphics.switchMode=function(a,c){var d;return a.data.length?(d=a.data[a.data.length-1],(d.mode!==c||1===c)&&(d=b.WebGLGraphics.graphicsDataPool.pop()||new b.WebGLGraphicsData(a.gl),d.mode=c,a.data.push(d))):(d=b.WebGLGraphics.graphicsDataPool.pop()||new b.WebGLGraphicsData(a.gl),d.mode=c,a.data.push(d)),d.dirty=!0,d},b.WebGLGraphics.buildRectangle=function(a,c){var d=a.points,e=d[0],f=d[1],g=d[2],h=d[3];if(a.fill){var i=b.hex2rgb(a.fillColor),j=a.fillAlpha,k=i[0]*j,l=i[1]*j,m=i[2]*j,n=c.points,o=c.indices,p=n.length/6;n.push(e,f),n.push(k,l,m,j),n.push(e+g,f),n.push(k,l,m,j),n.push(e,f+h),n.push(k,l,m,j),n.push(e+g,f+h),n.push(k,l,m,j),o.push(p,p,p+1,p+2,p+3,p+3)}if(a.lineWidth){var q=a.points;a.points=[e,f,e+g,f,e+g,f+h,e,f+h,e,f],b.WebGLGraphics.buildLine(a,c),a.points=q}},b.WebGLGraphics.buildRoundedRectangle=function(a,c){var d=a.points,e=d[0],f=d[1],g=d[2],h=d[3],i=d[4],j=[];if(j.push(e,f+i),j=j.concat(b.WebGLGraphics.quadraticBezierCurve(e,f+h-i,e,f+h,e+i,f+h)),j=j.concat(b.WebGLGraphics.quadraticBezierCurve(e+g-i,f+h,e+g,f+h,e+g,f+h-i)),j=j.concat(b.WebGLGraphics.quadraticBezierCurve(e+g,f+i,e+g,f,e+g-i,f)),j=j.concat(b.WebGLGraphics.quadraticBezierCurve(e+i,f,e,f,e,f+i)),a.fill){var k=b.hex2rgb(a.fillColor),l=a.fillAlpha,m=k[0]*l,n=k[1]*l,o=k[2]*l,p=c.points,q=c.indices,r=p.length/6,s=b.PolyK.Triangulate(j),t=0;for(t=0;t<s.length;t+=3)q.push(s[t]+r),q.push(s[t]+r),q.push(s[t+1]+r),q.push(s[t+2]+r),q.push(s[t+2]+r);for(t=0;t<j.length;t++)p.push(j[t],j[++t],m,n,o,l)}if(a.lineWidth){var u=a.points;a.points=j,b.WebGLGraphics.buildLine(a,c),a.points=u}},b.WebGLGraphics.quadraticBezierCurve=function(a,b,c,d,e,f){function g(a,b,c){var d=b-a;return a+d*c}for(var h,i,j,k,l,m,n=20,o=[],p=0,q=0;n>=q;q++)p=q/n,h=g(a,c,p),i=g(b,d,p),j=g(c,e,p),k=g(d,f,p),l=g(h,j,p),m=g(i,k,p),o.push(l,m);return o},b.WebGLGraphics.buildCircle=function(a,c){var d=a.points,e=d[0],f=d[1],g=d[2],h=d[3],i=40,j=2*Math.PI/i,k=0;if(a.fill){var l=b.hex2rgb(a.fillColor),m=a.fillAlpha,n=l[0]*m,o=l[1]*m,p=l[2]*m,q=c.points,r=c.indices,s=q.length/6;for(r.push(s),k=0;i+1>k;k++)q.push(e,f,n,o,p,m),q.push(e+Math.sin(j*k)*g,f+Math.cos(j*k)*h,n,o,p,m),r.push(s++,s++);r.push(s-1)}if(a.lineWidth){var t=a.points;for(a.points=[],k=0;i+1>k;k++)a.points.push(e+Math.sin(j*k)*g,f+Math.cos(j*k)*h);b.WebGLGraphics.buildLine(a,c),a.points=t}},b.WebGLGraphics.buildLine=function(a,c){var d=0,e=a.points;if(0!==e.length){if(a.lineWidth%2)for(d=0;d<e.length;d++)e[d]+=.5;var f=new b.Point(e[0],e[1]),g=new b.Point(e[e.length-2],e[e.length-1]);if(f.x===g.x&&f.y===g.y){e=e.slice(),e.pop(),e.pop(),g=new b.Point(e[e.length-2],e[e.length-1]);var h=g.x+.5*(f.x-g.x),i=g.y+.5*(f.y-g.y);e.unshift(h,i),e.push(h,i)}var j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z,A,B,C,D,E,F,G=c.points,H=c.indices,I=e.length/2,J=e.length,K=G.length/6,L=a.lineWidth/2,M=b.hex2rgb(a.lineColor),N=a.lineAlpha,O=M[0]*N,P=M[1]*N,Q=M[2]*N;for(l=e[0],m=e[1],n=e[2],o=e[3],r=-(m-o),s=l-n,F=Math.sqrt(r*r+s*s),r/=F,s/=F,r*=L,s*=L,G.push(l-r,m-s,O,P,Q,N),G.push(l+r,m+s,O,P,Q,N),d=1;I-1>d;d++)l=e[2*(d-1)],m=e[2*(d-1)+1],n=e[2*d],o=e[2*d+1],p=e[2*(d+1)],q=e[2*(d+1)+1],r=-(m-o),s=l-n,F=Math.sqrt(r*r+s*s),r/=F,s/=F,r*=L,s*=L,t=-(o-q),u=n-p,F=Math.sqrt(t*t+u*u),t/=F,u/=F,t*=L,u*=L,x=-s+m-(-s+o),y=-r+n-(-r+l),z=(-r+l)*(-s+o)-(-r+n)*(-s+m),A=-u+q-(-u+o),B=-t+n-(-t+p),C=(-t+p)*(-u+o)-(-t+n)*(-u+q),D=x*B-A*y,Math.abs(D)<.1?(D+=10.1,G.push(n-r,o-s,O,P,Q,N),G.push(n+r,o+s,O,P,Q,N)):(j=(y*C-B*z)/D,k=(A*z-x*C)/D,E=(j-n)*(j-n)+(k-o)+(k-o),E>19600?(v=r-t,w=s-u,F=Math.sqrt(v*v+w*w),v/=F,w/=F,v*=L,w*=L,G.push(n-v,o-w),G.push(O,P,Q,N),G.push(n+v,o+w),G.push(O,P,Q,N),G.push(n-v,o-w),G.push(O,P,Q,N),J++):(G.push(j,k),G.push(O,P,Q,N),G.push(n-(j-n),o-(k-o)),G.push(O,P,Q,N)));for(l=e[2*(I-2)],m=e[2*(I-2)+1],n=e[2*(I-1)],o=e[2*(I-1)+1],r=-(m-o),s=l-n,F=Math.sqrt(r*r+s*s),r/=F,s/=F,r*=L,s*=L,G.push(n-r,o-s),G.push(O,P,Q,N),G.push(n+r,o+s),G.push(O,P,Q,N),H.push(K),d=0;J>d;d++)H.push(K++);H.push(K-1)}},b.WebGLGraphics.buildComplexPoly=function(a,c){var d=a.points.slice();if(!(d.length<6)){var e=c.indices;c.points=d,c.alpha=a.fillAlpha,c.color=b.hex2rgb(a.fillColor);for(var f,g,h=1/0,i=-1/0,j=1/0,k=-1/0,l=0;l<d.length;l+=2)f=d[l],g=d[l+1],h=h>f?f:h,i=f>i?f:i,j=j>g?g:j,k=g>k?g:k;d.push(h,j,i,j,i,k,h,k);var m=d.length/2;for(l=0;m>l;l++)e.push(l)}},b.WebGLGraphics.buildPoly=function(a,c){var d=a.points;if(!(d.length<6)){var e=c.points,f=c.indices,g=d.length/2,h=b.hex2rgb(a.fillColor),i=a.fillAlpha,j=h[0]*i,k=h[1]*i,l=h[2]*i,m=b.PolyK.Triangulate(d),n=e.length/6,o=0;for(o=0;o<m.length;o+=3)f.push(m[o]+n),f.push(m[o]+n),f.push(m[o+1]+n),f.push(m[o+2]+n),f.push(m[o+2]+n);for(o=0;g>o;o++)e.push(d[2*o],d[2*o+1],j,k,l,i)}},b.WebGLGraphics.graphicsDataPool=[],b.WebGLGraphicsData=function(a){this.gl=a,this.color=[0,0,0],this.points=[],this.indices=[],this.lastIndex=0,this.buffer=a.createBuffer(),this.indexBuffer=a.createBuffer(),this.mode=1,this.alpha=1,this.dirty=!0},b.WebGLGraphicsData.prototype.reset=function(){this.points=[],this.indices=[],this.lastIndex=0},b.WebGLGraphicsData.prototype.upload=function(){var a=this.gl;this.glPoints=new Float32Array(this.points),a.bindBuffer(a.ARRAY_BUFFER,this.buffer),a.bufferData(a.ARRAY_BUFFER,this.glPoints,a.STATIC_DRAW),this.glIndicies=new Uint16Array(this.indices),a.bindBuffer(a.ELEMENT_ARRAY_BUFFER,this.indexBuffer),a.bufferData(a.ELEMENT_ARRAY_BUFFER,this.glIndicies,a.STATIC_DRAW),this.dirty=!1},b.glContexts=[],b.WebGLRenderer=function(a,c,d,e,f,g){b.defaultRenderer||(b.sayHello("webGL"),b.defaultRenderer=this),this.type=b.WEBGL_RENDERER,this.transparent=!!e,this.preserveDrawingBuffer=g,this.width=a||800,this.height=c||600,this.view=d||document.createElement("canvas"),this.view.width=this.width,this.view.height=this.height,this.contextLost=this.handleContextLost.bind(this),this.contextRestoredLost=this.handleContextRestored.bind(this),this.view.addEventListener("webglcontextlost",this.contextLost,!1),this.view.addEventListener("webglcontextrestored",this.contextRestoredLost,!1),this.options={alpha:this.transparent,antialias:!!f,premultipliedAlpha:!!e,stencil:!0,preserveDrawingBuffer:g};var h=null;if(["experimental-webgl","webgl"].forEach(function(a){try{h=h||this.view.getContext(a,this.options)}catch(b){}},this),!h)throw new Error("This browser does not support webGL. Try using the canvas renderer"+this);this.gl=h,this.glContextId=h.id=b.WebGLRenderer.glContextId++,b.glContexts[this.glContextId]=h,b.blendModesWebGL||(b.blendModesWebGL=[],b.blendModesWebGL[b.blendModes.NORMAL]=[h.ONE,h.ONE_MINUS_SRC_ALPHA],b.blendModesWebGL[b.blendModes.ADD]=[h.SRC_ALPHA,h.DST_ALPHA],b.blendModesWebGL[b.blendModes.MULTIPLY]=[h.DST_COLOR,h.ONE_MINUS_SRC_ALPHA],b.blendModesWebGL[b.blendModes.SCREEN]=[h.SRC_ALPHA,h.ONE],b.blendModesWebGL[b.blendModes.OVERLAY]=[h.ONE,h.ONE_MINUS_SRC_ALPHA],b.blendModesWebGL[b.blendModes.DARKEN]=[h.ONE,h.ONE_MINUS_SRC_ALPHA],b.blendModesWebGL[b.blendModes.LIGHTEN]=[h.ONE,h.ONE_MINUS_SRC_ALPHA],b.blendModesWebGL[b.blendModes.COLOR_DODGE]=[h.ONE,h.ONE_MINUS_SRC_ALPHA],b.blendModesWebGL[b.blendModes.COLOR_BURN]=[h.ONE,h.ONE_MINUS_SRC_ALPHA],b.blendModesWebGL[b.blendModes.HARD_LIGHT]=[h.ONE,h.ONE_MINUS_SRC_ALPHA],b.blendModesWebGL[b.blendModes.SOFT_LIGHT]=[h.ONE,h.ONE_MINUS_SRC_ALPHA],b.blendModesWebGL[b.blendModes.DIFFERENCE]=[h.ONE,h.ONE_MINUS_SRC_ALPHA],b.blendModesWebGL[b.blendModes.EXCLUSION]=[h.ONE,h.ONE_MINUS_SRC_ALPHA],b.blendModesWebGL[b.blendModes.HUE]=[h.ONE,h.ONE_MINUS_SRC_ALPHA],b.blendModesWebGL[b.blendModes.SATURATION]=[h.ONE,h.ONE_MINUS_SRC_ALPHA],b.blendModesWebGL[b.blendModes.COLOR]=[h.ONE,h.ONE_MINUS_SRC_ALPHA],b.blendModesWebGL[b.blendModes.LUMINOSITY]=[h.ONE,h.ONE_MINUS_SRC_ALPHA]),this.projection=new b.Point,this.projection.x=this.width/2,this.projection.y=-this.height/2,this.offset=new b.Point(0,0),this.resize(this.width,this.height),this.contextLost=!1,this.shaderManager=new b.WebGLShaderManager(h),this.spriteBatch=new b.WebGLSpriteBatch(h),this.maskManager=new b.WebGLMaskManager(h),this.filterManager=new b.WebGLFilterManager(h,this.transparent),this.stencilManager=new b.WebGLStencilManager(h),this.blendModeManager=new b.WebGLBlendModeManager(h),this.renderSession={},this.renderSession.gl=this.gl,this.renderSession.drawCount=0,this.renderSession.shaderManager=this.shaderManager,this.renderSession.maskManager=this.maskManager,this.renderSession.filterManager=this.filterManager,this.renderSession.blendModeManager=this.blendModeManager,this.renderSession.spriteBatch=this.spriteBatch,this.renderSession.stencilManager=this.stencilManager,this.renderSession.renderer=this,h.useProgram(this.shaderManager.defaultShader.program),h.disable(h.DEPTH_TEST),h.disable(h.CULL_FACE),h.enable(h.BLEND),h.colorMask(!0,!0,!0,this.transparent)},b.WebGLRenderer.prototype.constructor=b.WebGLRenderer,b.WebGLRenderer.prototype.render=function(a){if(!this.contextLost){this.__stage!==a&&(a.interactive&&a.interactionManager.removeEvents(),this.__stage=a),b.WebGLRenderer.updateTextures(),a.updateTransform(),a._interactive&&(a._interactiveEventsAdded||(a._interactiveEventsAdded=!0,a.interactionManager.setTarget(this)));var c=this.gl;c.viewport(0,0,this.width,this.height),c.bindFramebuffer(c.FRAMEBUFFER,null),this.transparent?c.clearColor(0,0,0,0):c.clearColor(a.backgroundColorSplit[0],a.backgroundColorSplit[1],a.backgroundColorSplit[2],1),c.clear(c.COLOR_BUFFER_BIT),this.renderDisplayObject(a,this.projection),a.interactive?a._interactiveEventsAdded||(a._interactiveEventsAdded=!0,a.interactionManager.setTarget(this)):a._interactiveEventsAdded&&(a._interactiveEventsAdded=!1,a.interactionManager.setTarget(this))}},b.WebGLRenderer.prototype.renderDisplayObject=function(a,c,d){this.renderSession.blendModeManager.setBlendMode(b.blendModes.NORMAL),this.renderSession.drawCount=0,this.renderSession.currentBlendMode=9999,this.renderSession.projection=c,this.renderSession.offset=this.offset,this.spriteBatch.begin(this.renderSession),this.filterManager.begin(this.renderSession,d),a._renderWebGL(this.renderSession),this.spriteBatch.end()},b.WebGLRenderer.updateTextures=function(){var a=0;for(a=0;a<b.Texture.frameUpdates.length;a++)b.WebGLRenderer.updateTextureFrame(b.Texture.frameUpdates[a]);for(a=0;a<b.texturesToDestroy.length;a++)b.WebGLRenderer.destroyTexture(b.texturesToDestroy[a]);b.texturesToUpdate.length=0,b.texturesToDestroy.length=0,b.Texture.frameUpdates.length=0},b.WebGLRenderer.destroyTexture=function(a){for(var c=a._glTextures.length-1;c>=0;c--){var d=a._glTextures[c],e=b.glContexts[c];
+e&&d&&e.deleteTexture(d)}a._glTextures.length=0},b.WebGLRenderer.updateTextureFrame=function(a){a._updateWebGLuvs()},b.WebGLRenderer.prototype.resize=function(a,b){this.width=a,this.height=b,this.view.width=a,this.view.height=b,this.gl.viewport(0,0,this.width,this.height),this.projection.x=this.width/2,this.projection.y=-this.height/2},b.createWebGLTexture=function(a,c){return a.hasLoaded&&(a._glTextures[c.id]=c.createTexture(),c.bindTexture(c.TEXTURE_2D,a._glTextures[c.id]),c.pixelStorei(c.UNPACK_PREMULTIPLY_ALPHA_WEBGL,a.premultipliedAlpha),c.texImage2D(c.TEXTURE_2D,0,c.RGBA,c.RGBA,c.UNSIGNED_BYTE,a.source),c.texParameteri(c.TEXTURE_2D,c.TEXTURE_MAG_FILTER,a.scaleMode===b.scaleModes.LINEAR?c.LINEAR:c.NEAREST),c.texParameteri(c.TEXTURE_2D,c.TEXTURE_MIN_FILTER,a.scaleMode===b.scaleModes.LINEAR?c.LINEAR:c.NEAREST),a._powerOf2?(c.texParameteri(c.TEXTURE_2D,c.TEXTURE_WRAP_S,c.REPEAT),c.texParameteri(c.TEXTURE_2D,c.TEXTURE_WRAP_T,c.REPEAT)):(c.texParameteri(c.TEXTURE_2D,c.TEXTURE_WRAP_S,c.CLAMP_TO_EDGE),c.texParameteri(c.TEXTURE_2D,c.TEXTURE_WRAP_T,c.CLAMP_TO_EDGE)),c.bindTexture(c.TEXTURE_2D,null),a._dirty[c.id]=!1),a._glTextures[c.id]},b.updateWebGLTexture=function(a,c){a._glTextures[c.id]&&(c.bindTexture(c.TEXTURE_2D,a._glTextures[c.id]),c.pixelStorei(c.UNPACK_PREMULTIPLY_ALPHA_WEBGL,a.premultipliedAlpha),c.texImage2D(c.TEXTURE_2D,0,c.RGBA,c.RGBA,c.UNSIGNED_BYTE,a.source),c.texParameteri(c.TEXTURE_2D,c.TEXTURE_MAG_FILTER,a.scaleMode===b.scaleModes.LINEAR?c.LINEAR:c.NEAREST),c.texParameteri(c.TEXTURE_2D,c.TEXTURE_MIN_FILTER,a.scaleMode===b.scaleModes.LINEAR?c.LINEAR:c.NEAREST),a._powerOf2?(c.texParameteri(c.TEXTURE_2D,c.TEXTURE_WRAP_S,c.REPEAT),c.texParameteri(c.TEXTURE_2D,c.TEXTURE_WRAP_T,c.REPEAT)):(c.texParameteri(c.TEXTURE_2D,c.TEXTURE_WRAP_S,c.CLAMP_TO_EDGE),c.texParameteri(c.TEXTURE_2D,c.TEXTURE_WRAP_T,c.CLAMP_TO_EDGE)),a._dirty[c.id]=!1)},b.WebGLRenderer.prototype.handleContextLost=function(a){a.preventDefault(),this.contextLost=!0},b.WebGLRenderer.prototype.handleContextRestored=function(){try{this.gl=this.view.getContext("experimental-webgl",this.options)}catch(a){try{this.gl=this.view.getContext("webgl",this.options)}catch(c){throw new Error(" This browser does not support webGL. Try using the canvas renderer"+this)}}var d=this.gl;d.id=b.WebGLRenderer.glContextId++,this.shaderManager.setContext(d),this.spriteBatch.setContext(d),this.primitiveBatch.setContext(d),this.maskManager.setContext(d),this.filterManager.setContext(d),this.renderSession.gl=this.gl,d.disable(d.DEPTH_TEST),d.disable(d.CULL_FACE),d.enable(d.BLEND),d.colorMask(!0,!0,!0,this.transparent),this.gl.viewport(0,0,this.width,this.height);for(var e in b.TextureCache){var f=b.TextureCache[e].baseTexture;f._glTextures=[]}this.contextLost=!1},b.WebGLRenderer.prototype.destroy=function(){this.view.removeEventListener("webglcontextlost",this.contextLost),this.view.removeEventListener("webglcontextrestored",this.contextRestoredLost),b.glContexts[this.glContextId]=null,this.projection=null,this.offset=null,this.shaderManager.destroy(),this.spriteBatch.destroy(),this.primitiveBatch.destroy(),this.maskManager.destroy(),this.filterManager.destroy(),this.shaderManager=null,this.spriteBatch=null,this.maskManager=null,this.filterManager=null,this.gl=null,this.renderSession=null},b.WebGLRenderer.glContextId=0,b.WebGLBlendModeManager=function(a){this.gl=a,this.currentBlendMode=99999},b.WebGLBlendModeManager.prototype.setBlendMode=function(a){if(this.currentBlendMode===a)return!1;this.currentBlendMode=a;var c=b.blendModesWebGL[this.currentBlendMode];return this.gl.blendFunc(c[0],c[1]),!0},b.WebGLBlendModeManager.prototype.destroy=function(){this.gl=null},b.WebGLMaskManager=function(a){this.maskStack=[],this.maskPosition=0,this.setContext(a),this.reverse=!1,this.count=0},b.WebGLMaskManager.prototype.setContext=function(a){this.gl=a},b.WebGLMaskManager.prototype.pushMask=function(a,c){var d=c.gl;a.dirty&&b.WebGLGraphics.updateGraphics(a,d),a._webGL[d.id].data.length&&c.stencilManager.pushStencil(a,a._webGL[d.id].data[0],c)},b.WebGLMaskManager.prototype.popMask=function(a,b){var c=this.gl;b.stencilManager.popStencil(a,a._webGL[c.id].data[0],b)},b.WebGLMaskManager.prototype.destroy=function(){this.maskStack=null,this.gl=null},b.WebGLStencilManager=function(a){this.stencilStack=[],this.setContext(a),this.reverse=!0,this.count=0},b.WebGLStencilManager.prototype.setContext=function(a){this.gl=a},b.WebGLStencilManager.prototype.pushStencil=function(a,b,c){var d=this.gl;this.bindGraphics(a,b,c),0===this.stencilStack.length&&(d.enable(d.STENCIL_TEST),d.clear(d.STENCIL_BUFFER_BIT),this.reverse=!0,this.count=0),this.stencilStack.push(b);var e=this.count;d.colorMask(!1,!1,!1,!1),d.stencilFunc(d.ALWAYS,0,255),d.stencilOp(d.KEEP,d.KEEP,d.INVERT),1===b.mode?(d.drawElements(d.TRIANGLE_FAN,b.indices.length-4,d.UNSIGNED_SHORT,0),this.reverse?(d.stencilFunc(d.EQUAL,255-e,255),d.stencilOp(d.KEEP,d.KEEP,d.DECR)):(d.stencilFunc(d.EQUAL,e,255),d.stencilOp(d.KEEP,d.KEEP,d.INCR)),d.drawElements(d.TRIANGLE_FAN,4,d.UNSIGNED_SHORT,2*(b.indices.length-4)),this.reverse?d.stencilFunc(d.EQUAL,255-(e+1),255):d.stencilFunc(d.EQUAL,e+1,255),this.reverse=!this.reverse):(this.reverse?(d.stencilFunc(d.EQUAL,e,255),d.stencilOp(d.KEEP,d.KEEP,d.INCR)):(d.stencilFunc(d.EQUAL,255-e,255),d.stencilOp(d.KEEP,d.KEEP,d.DECR)),d.drawElements(d.TRIANGLE_STRIP,b.indices.length,d.UNSIGNED_SHORT,0),this.reverse?d.stencilFunc(d.EQUAL,e+1,255):d.stencilFunc(d.EQUAL,255-(e+1),255)),d.colorMask(!0,!0,!0,!0),d.stencilOp(d.KEEP,d.KEEP,d.KEEP),this.count++},b.WebGLStencilManager.prototype.bindGraphics=function(a,c,d){this._currentGraphics=a;var e,f=this.gl,g=d.projection,h=d.offset;1===c.mode?(e=d.shaderManager.complexPrimativeShader,d.shaderManager.setShader(e),f.uniformMatrix3fv(e.translationMatrix,!1,a.worldTransform.toArray(!0)),f.uniform2f(e.projectionVector,g.x,-g.y),f.uniform2f(e.offsetVector,-h.x,-h.y),f.uniform3fv(e.tintColor,b.hex2rgb(a.tint)),f.uniform3fv(e.color,c.color),f.uniform1f(e.alpha,a.worldAlpha*c.alpha),f.bindBuffer(f.ARRAY_BUFFER,c.buffer),f.vertexAttribPointer(e.aVertexPosition,2,f.FLOAT,!1,8,0),f.bindBuffer(f.ELEMENT_ARRAY_BUFFER,c.indexBuffer)):(e=d.shaderManager.primitiveShader,d.shaderManager.setShader(e),f.uniformMatrix3fv(e.translationMatrix,!1,a.worldTransform.toArray(!0)),f.uniform2f(e.projectionVector,g.x,-g.y),f.uniform2f(e.offsetVector,-h.x,-h.y),f.uniform3fv(e.tintColor,b.hex2rgb(a.tint)),f.uniform1f(e.alpha,a.worldAlpha),f.bindBuffer(f.ARRAY_BUFFER,c.buffer),f.vertexAttribPointer(e.aVertexPosition,2,f.FLOAT,!1,24,0),f.vertexAttribPointer(e.colorAttribute,4,f.FLOAT,!1,24,8),f.bindBuffer(f.ELEMENT_ARRAY_BUFFER,c.indexBuffer))},b.WebGLStencilManager.prototype.popStencil=function(a,b,c){var d=this.gl;if(this.stencilStack.pop(),this.count--,0===this.stencilStack.length)d.disable(d.STENCIL_TEST);else{var e=this.count;this.bindGraphics(a,b,c),d.colorMask(!1,!1,!1,!1),1===b.mode?(this.reverse=!this.reverse,this.reverse?(d.stencilFunc(d.EQUAL,255-(e+1),255),d.stencilOp(d.KEEP,d.KEEP,d.INCR)):(d.stencilFunc(d.EQUAL,e+1,255),d.stencilOp(d.KEEP,d.KEEP,d.DECR)),d.drawElements(d.TRIANGLE_FAN,4,d.UNSIGNED_SHORT,2*(b.indices.length-4)),d.stencilFunc(d.ALWAYS,0,255),d.stencilOp(d.KEEP,d.KEEP,d.INVERT),d.drawElements(d.TRIANGLE_FAN,b.indices.length-4,d.UNSIGNED_SHORT,0),this.reverse?d.stencilFunc(d.EQUAL,e,255):d.stencilFunc(d.EQUAL,255-e,255)):(this.reverse?(d.stencilFunc(d.EQUAL,e+1,255),d.stencilOp(d.KEEP,d.KEEP,d.DECR)):(d.stencilFunc(d.EQUAL,255-(e+1),255),d.stencilOp(d.KEEP,d.KEEP,d.INCR)),d.drawElements(d.TRIANGLE_STRIP,b.indices.length,d.UNSIGNED_SHORT,0),this.reverse?d.stencilFunc(d.EQUAL,e,255):d.stencilFunc(d.EQUAL,255-e,255)),d.colorMask(!0,!0,!0,!0),d.stencilOp(d.KEEP,d.KEEP,d.KEEP)}},b.WebGLStencilManager.prototype.destroy=function(){this.maskStack=null,this.gl=null},b.WebGLShaderManager=function(a){this.maxAttibs=10,this.attribState=[],this.tempAttribState=[],this.shaderMap=[];for(var b=0;b<this.maxAttibs;b++)this.attribState[b]=!1;this.setContext(a)},b.WebGLShaderManager.prototype.setContext=function(a){this.gl=a,this.primitiveShader=new b.PrimitiveShader(a),this.complexPrimativeShader=new b.ComplexPrimitiveShader(a),this.defaultShader=new b.PixiShader(a),this.fastShader=new b.PixiFastShader(a),this.stripShader=new b.StripShader(a),this.setShader(this.defaultShader)},b.WebGLShaderManager.prototype.setAttribs=function(a){var b;for(b=0;b<this.tempAttribState.length;b++)this.tempAttribState[b]=!1;for(b=0;b<a.length;b++){var c=a[b];this.tempAttribState[c]=!0}var d=this.gl;for(b=0;b<this.attribState.length;b++)this.attribState[b]!==this.tempAttribState[b]&&(this.attribState[b]=this.tempAttribState[b],this.tempAttribState[b]?d.enableVertexAttribArray(b):d.disableVertexAttribArray(b))},b.WebGLShaderManager.prototype.setShader=function(a){return this._currentId===a._UID?!1:(this._currentId=a._UID,this.currentShader=a,this.gl.useProgram(a.program),this.setAttribs(a.attributes),!0)},b.WebGLShaderManager.prototype.destroy=function(){this.attribState=null,this.tempAttribState=null,this.primitiveShader.destroy(),this.defaultShader.destroy(),this.fastShader.destroy(),this.stripShader.destroy(),this.gl=null},b.WebGLSpriteBatch=function(a){this.vertSize=6,this.size=2e3;var b=4*this.size*this.vertSize,c=6*this.size;this.vertices=new Float32Array(b),this.indices=new Uint16Array(c),this.lastIndexCount=0;for(var d=0,e=0;c>d;d+=6,e+=4)this.indices[d+0]=e+0,this.indices[d+1]=e+1,this.indices[d+2]=e+2,this.indices[d+3]=e+0,this.indices[d+4]=e+2,this.indices[d+5]=e+3;this.drawing=!1,this.currentBatchSize=0,this.currentBaseTexture=null,this.setContext(a),this.dirty=!0,this.textures=[],this.blendModes=[]},b.WebGLSpriteBatch.prototype.setContext=function(a){this.gl=a,this.vertexBuffer=a.createBuffer(),this.indexBuffer=a.createBuffer(),a.bindBuffer(a.ELEMENT_ARRAY_BUFFER,this.indexBuffer),a.bufferData(a.ELEMENT_ARRAY_BUFFER,this.indices,a.STATIC_DRAW),a.bindBuffer(a.ARRAY_BUFFER,this.vertexBuffer),a.bufferData(a.ARRAY_BUFFER,this.vertices,a.DYNAMIC_DRAW),this.currentBlendMode=99999},b.WebGLSpriteBatch.prototype.begin=function(a){this.renderSession=a,this.shader=this.renderSession.shaderManager.defaultShader,this.start()},b.WebGLSpriteBatch.prototype.end=function(){this.flush()},b.WebGLSpriteBatch.prototype.render=function(a){var b=a.texture;this.currentBatchSize>=this.size&&(this.flush(),this.currentBaseTexture=b.baseTexture);var c=b._uvs;if(c){var d,e,f,g,h=a.worldAlpha,i=a.tint,j=this.vertices,k=a.anchor.x,l=a.anchor.y;if(b.trim){var m=b.trim;e=m.x-k*m.width,d=e+b.crop.width,g=m.y-l*m.height,f=g+b.crop.height}else d=b.frame.width*(1-k),e=b.frame.width*-k,f=b.frame.height*(1-l),g=b.frame.height*-l;var n=4*this.currentBatchSize*this.vertSize,o=a.worldTransform,p=o.a,q=o.c,r=o.b,s=o.d,t=o.tx,u=o.ty;j[n++]=p*e+r*g+t,j[n++]=s*g+q*e+u,j[n++]=c.x0,j[n++]=c.y0,j[n++]=h,j[n++]=i,j[n++]=p*d+r*g+t,j[n++]=s*g+q*d+u,j[n++]=c.x1,j[n++]=c.y1,j[n++]=h,j[n++]=i,j[n++]=p*d+r*f+t,j[n++]=s*f+q*d+u,j[n++]=c.x2,j[n++]=c.y2,j[n++]=h,j[n++]=i,j[n++]=p*e+r*f+t,j[n++]=s*f+q*e+u,j[n++]=c.x3,j[n++]=c.y3,j[n++]=h,j[n++]=i,this.textures[this.currentBatchSize]=a.texture.baseTexture,this.blendModes[this.currentBatchSize]=a.blendMode,this.currentBatchSize++}},b.WebGLSpriteBatch.prototype.renderTilingSprite=function(a){var c=a.tilingTexture;this.currentBatchSize>=this.size&&(this.flush(),this.currentBaseTexture=c.baseTexture),a._uvs||(a._uvs=new b.TextureUvs);var d=a._uvs;a.tilePosition.x%=c.baseTexture.width*a.tileScaleOffset.x,a.tilePosition.y%=c.baseTexture.height*a.tileScaleOffset.y;var e=a.tilePosition.x/(c.baseTexture.width*a.tileScaleOffset.x),f=a.tilePosition.y/(c.baseTexture.height*a.tileScaleOffset.y),g=a.width/c.baseTexture.width/(a.tileScale.x*a.tileScaleOffset.x),h=a.height/c.baseTexture.height/(a.tileScale.y*a.tileScaleOffset.y);d.x0=0-e,d.y0=0-f,d.x1=1*g-e,d.y1=0-f,d.x2=1*g-e,d.y2=1*h-f,d.x3=0-e,d.y3=1*h-f;var i=a.worldAlpha,j=a.tint,k=this.vertices,l=a.width,m=a.height,n=a.anchor.x,o=a.anchor.y,p=l*(1-n),q=l*-n,r=m*(1-o),s=m*-o,t=4*this.currentBatchSize*this.vertSize,u=a.worldTransform,v=u.a,w=u.c,x=u.b,y=u.d,z=u.tx,A=u.ty;k[t++]=v*q+x*s+z,k[t++]=y*s+w*q+A,k[t++]=d.x0,k[t++]=d.y0,k[t++]=i,k[t++]=j,k[t++]=v*p+x*s+z,k[t++]=y*s+w*p+A,k[t++]=d.x1,k[t++]=d.y1,k[t++]=i,k[t++]=j,k[t++]=v*p+x*r+z,k[t++]=y*r+w*p+A,k[t++]=d.x2,k[t++]=d.y2,k[t++]=i,k[t++]=j,k[t++]=v*q+x*r+z,k[t++]=y*r+w*q+A,k[t++]=d.x3,k[t++]=d.y3,k[t++]=i,k[t++]=j,this.textures[this.currentBatchSize]=c.baseTexture,this.blendModes[this.currentBatchSize]=a.blendMode,this.currentBatchSize++},b.WebGLSpriteBatch.prototype.flush=function(){if(0!==this.currentBatchSize){var a=this.gl;if(this.renderSession.shaderManager.setShader(this.renderSession.shaderManager.defaultShader),this.dirty){this.dirty=!1,a.activeTexture(a.TEXTURE0),a.bindBuffer(a.ARRAY_BUFFER,this.vertexBuffer),a.bindBuffer(a.ELEMENT_ARRAY_BUFFER,this.indexBuffer);var b=this.renderSession.projection;a.uniform2f(this.shader.projectionVector,b.x,b.y);var c=4*this.vertSize;a.vertexAttribPointer(this.shader.aVertexPosition,2,a.FLOAT,!1,c,0),a.vertexAttribPointer(this.shader.aTextureCoord,2,a.FLOAT,!1,c,8),a.vertexAttribPointer(this.shader.colorAttribute,2,a.FLOAT,!1,c,16)}if(this.currentBatchSize>.5*this.size)a.bufferSubData(a.ARRAY_BUFFER,0,this.vertices);else{var d=this.vertices.subarray(0,4*this.currentBatchSize*this.vertSize);a.bufferSubData(a.ARRAY_BUFFER,0,d)}for(var e,f,g=0,h=0,i=null,j=this.renderSession.blendModeManager.currentBlendMode,k=0,l=this.currentBatchSize;l>k;k++)e=this.textures[k],f=this.blendModes[k],(i!==e||j!==f)&&(this.renderBatch(i,g,h),h=k,g=0,i=e,j=f,this.renderSession.blendModeManager.setBlendMode(j)),g++;this.renderBatch(i,g,h),this.currentBatchSize=0}},b.WebGLSpriteBatch.prototype.renderBatch=function(a,c,d){if(0!==c){var e=this.gl;e.bindTexture(e.TEXTURE_2D,a._glTextures[e.id]||b.createWebGLTexture(a,e)),a._dirty[e.id]&&b.updateWebGLTexture(this.currentBaseTexture,e),e.drawElements(e.TRIANGLES,6*c,e.UNSIGNED_SHORT,6*d*2),this.renderSession.drawCount++}},b.WebGLSpriteBatch.prototype.stop=function(){this.flush()},b.WebGLSpriteBatch.prototype.start=function(){this.dirty=!0},b.WebGLSpriteBatch.prototype.destroy=function(){this.vertices=null,this.indices=null,this.gl.deleteBuffer(this.vertexBuffer),this.gl.deleteBuffer(this.indexBuffer),this.currentBaseTexture=null,this.gl=null},b.WebGLFastSpriteBatch=function(a){this.vertSize=10,this.maxSize=6e3,this.size=this.maxSize;var b=4*this.size*this.vertSize,c=6*this.maxSize;this.vertices=new Float32Array(b),this.indices=new Uint16Array(c),this.vertexBuffer=null,this.indexBuffer=null,this.lastIndexCount=0;for(var d=0,e=0;c>d;d+=6,e+=4)this.indices[d+0]=e+0,this.indices[d+1]=e+1,this.indices[d+2]=e+2,this.indices[d+3]=e+0,this.indices[d+4]=e+2,this.indices[d+5]=e+3;this.drawing=!1,this.currentBatchSize=0,this.currentBaseTexture=null,this.currentBlendMode=0,this.renderSession=null,this.shader=null,this.matrix=null,this.setContext(a)},b.WebGLFastSpriteBatch.prototype.setContext=function(a){this.gl=a,this.vertexBuffer=a.createBuffer(),this.indexBuffer=a.createBuffer(),a.bindBuffer(a.ELEMENT_ARRAY_BUFFER,this.indexBuffer),a.bufferData(a.ELEMENT_ARRAY_BUFFER,this.indices,a.STATIC_DRAW),a.bindBuffer(a.ARRAY_BUFFER,this.vertexBuffer),a.bufferData(a.ARRAY_BUFFER,this.vertices,a.DYNAMIC_DRAW)},b.WebGLFastSpriteBatch.prototype.begin=function(a,b){this.renderSession=b,this.shader=this.renderSession.shaderManager.fastShader,this.matrix=a.worldTransform.toArray(!0),this.start()},b.WebGLFastSpriteBatch.prototype.end=function(){this.flush()},b.WebGLFastSpriteBatch.prototype.render=function(a){var b=a.children,c=b[0];if(c.texture._uvs){this.currentBaseTexture=c.texture.baseTexture,c.blendMode!==this.renderSession.blendModeManager.currentBlendMode&&(this.flush(),this.renderSession.blendModeManager.setBlendMode(c.blendMode));for(var d=0,e=b.length;e>d;d++)this.renderSprite(b[d]);this.flush()}},b.WebGLFastSpriteBatch.prototype.renderSprite=function(a){if(a.visible&&(a.texture.baseTexture===this.currentBaseTexture||(this.flush(),this.currentBaseTexture=a.texture.baseTexture,a.texture._uvs))){var b,c,d,e,f,g,h,i,j=this.vertices;if(b=a.texture._uvs,c=a.texture.frame.width,d=a.texture.frame.height,a.texture.trim){var k=a.texture.trim;f=k.x-a.anchor.x*k.width,e=f+a.texture.crop.width,h=k.y-a.anchor.y*k.height,g=h+a.texture.crop.height}else e=a.texture.frame.width*(1-a.anchor.x),f=a.texture.frame.width*-a.anchor.x,g=a.texture.frame.height*(1-a.anchor.y),h=a.texture.frame.height*-a.anchor.y;i=4*this.currentBatchSize*this.vertSize,j[i++]=f,j[i++]=h,j[i++]=a.position.x,j[i++]=a.position.y,j[i++]=a.scale.x,j[i++]=a.scale.y,j[i++]=a.rotation,j[i++]=b.x0,j[i++]=b.y1,j[i++]=a.alpha,j[i++]=e,j[i++]=h,j[i++]=a.position.x,j[i++]=a.position.y,j[i++]=a.scale.x,j[i++]=a.scale.y,j[i++]=a.rotation,j[i++]=b.x1,j[i++]=b.y1,j[i++]=a.alpha,j[i++]=e,j[i++]=g,j[i++]=a.position.x,j[i++]=a.position.y,j[i++]=a.scale.x,j[i++]=a.scale.y,j[i++]=a.rotation,j[i++]=b.x2,j[i++]=b.y2,j[i++]=a.alpha,j[i++]=f,j[i++]=g,j[i++]=a.position.x,j[i++]=a.position.y,j[i++]=a.scale.x,j[i++]=a.scale.y,j[i++]=a.rotation,j[i++]=b.x3,j[i++]=b.y3,j[i++]=a.alpha,this.currentBatchSize++,this.currentBatchSize>=this.size&&this.flush()}},b.WebGLFastSpriteBatch.prototype.flush=function(){if(0!==this.currentBatchSize){var a=this.gl;if(this.currentBaseTexture._glTextures[a.id]||b.createWebGLTexture(this.currentBaseTexture,a),a.bindTexture(a.TEXTURE_2D,this.currentBaseTexture._glTextures[a.id]),this.currentBatchSize>.5*this.size)a.bufferSubData(a.ARRAY_BUFFER,0,this.vertices);else{var c=this.vertices.subarray(0,4*this.currentBatchSize*this.vertSize);a.bufferSubData(a.ARRAY_BUFFER,0,c)}a.drawElements(a.TRIANGLES,6*this.currentBatchSize,a.UNSIGNED_SHORT,0),this.currentBatchSize=0,this.renderSession.drawCount++}},b.WebGLFastSpriteBatch.prototype.stop=function(){this.flush()},b.WebGLFastSpriteBatch.prototype.start=function(){var a=this.gl;a.activeTexture(a.TEXTURE0),a.bindBuffer(a.ARRAY_BUFFER,this.vertexBuffer),a.bindBuffer(a.ELEMENT_ARRAY_BUFFER,this.indexBuffer);var b=this.renderSession.projection;a.uniform2f(this.shader.projectionVector,b.x,b.y),a.uniformMatrix3fv(this.shader.uMatrix,!1,this.matrix);var c=4*this.vertSize;a.vertexAttribPointer(this.shader.aVertexPosition,2,a.FLOAT,!1,c,0),a.vertexAttribPointer(this.shader.aPositionCoord,2,a.FLOAT,!1,c,8),a.vertexAttribPointer(this.shader.aScale,2,a.FLOAT,!1,c,16),a.vertexAttribPointer(this.shader.aRotation,1,a.FLOAT,!1,c,24),a.vertexAttribPointer(this.shader.aTextureCoord,2,a.FLOAT,!1,c,28),a.vertexAttribPointer(this.shader.colorAttribute,1,a.FLOAT,!1,c,36)},b.WebGLFilterManager=function(a,b){this.transparent=b,this.filterStack=[],this.offsetX=0,this.offsetY=0,this.setContext(a)},b.WebGLFilterManager.prototype.setContext=function(a){this.gl=a,this.texturePool=[],this.initShaderBuffers()},b.WebGLFilterManager.prototype.begin=function(a,b){this.renderSession=a,this.defaultShader=a.shaderManager.defaultShader;var c=this.renderSession.projection;this.width=2*c.x,this.height=2*-c.y,this.buffer=b},b.WebGLFilterManager.prototype.pushFilter=function(a){var c=this.gl,d=this.renderSession.projection,e=this.renderSession.offset;a._filterArea=a.target.filterArea||a.target.getBounds(),this.filterStack.push(a);var f=a.filterPasses[0];this.offsetX+=a._filterArea.x,this.offsetY+=a._filterArea.y;var g=this.texturePool.pop();g?g.resize(this.width,this.height):g=new b.FilterTexture(this.gl,this.width,this.height),c.bindTexture(c.TEXTURE_2D,g.texture);var h=a._filterArea,i=f.padding;h.x-=i,h.y-=i,h.width+=2*i,h.height+=2*i,h.x<0&&(h.x=0),h.width>this.width&&(h.width=this.width),h.y<0&&(h.y=0),h.height>this.height&&(h.height=this.height),c.bindFramebuffer(c.FRAMEBUFFER,g.frameBuffer),c.viewport(0,0,h.width,h.height),d.x=h.width/2,d.y=-h.height/2,e.x=-h.x,e.y=-h.y,this.renderSession.shaderManager.setShader(this.defaultShader),c.uniform2f(this.defaultShader.projectionVector,h.width/2,-h.height/2),c.uniform2f(this.defaultShader.offsetVector,-h.x,-h.y),c.colorMask(!0,!0,!0,!0),c.clearColor(0,0,0,0),c.clear(c.COLOR_BUFFER_BIT),a._glFilterTexture=g},b.WebGLFilterManager.prototype.popFilter=function(){var a=this.gl,c=this.filterStack.pop(),d=c._filterArea,e=c._glFilterTexture,f=this.renderSession.projection,g=this.renderSession.offset;if(c.filterPasses.length>1){a.viewport(0,0,d.width,d.height),a.bindBuffer(a.ARRAY_BUFFER,this.vertexBuffer),this.vertexArray[0]=0,this.vertexArray[1]=d.height,this.vertexArray[2]=d.width,this.vertexArray[3]=d.height,this.vertexArray[4]=0,this.vertexArray[5]=0,this.vertexArray[6]=d.width,this.vertexArray[7]=0,a.bufferSubData(a.ARRAY_BUFFER,0,this.vertexArray),a.bindBuffer(a.ARRAY_BUFFER,this.uvBuffer),this.uvArray[2]=d.width/this.width,this.uvArray[5]=d.height/this.height,this.uvArray[6]=d.width/this.width,this.uvArray[7]=d.height/this.height,a.bufferSubData(a.ARRAY_BUFFER,0,this.uvArray);var h=e,i=this.texturePool.pop();i||(i=new b.FilterTexture(this.gl,this.width,this.height)),i.resize(this.width,this.height),a.bindFramebuffer(a.FRAMEBUFFER,i.frameBuffer),a.clear(a.COLOR_BUFFER_BIT),a.disable(a.BLEND);for(var j=0;j<c.filterPasses.length-1;j++){var k=c.filterPasses[j];a.bindFramebuffer(a.FRAMEBUFFER,i.frameBuffer),a.activeTexture(a.TEXTURE0),a.bindTexture(a.TEXTURE_2D,h.texture),this.applyFilterPass(k,d,d.width,d.height);var l=h;h=i,i=l}a.enable(a.BLEND),e=h,this.texturePool.push(i)}var m=c.filterPasses[c.filterPasses.length-1];this.offsetX-=d.x,this.offsetY-=d.y;var n=this.width,o=this.height,p=0,q=0,r=this.buffer;if(0===this.filterStack.length)a.colorMask(!0,!0,!0,!0);else{var s=this.filterStack[this.filterStack.length-1];d=s._filterArea,n=d.width,o=d.height,p=d.x,q=d.y,r=s._glFilterTexture.frameBuffer}f.x=n/2,f.y=-o/2,g.x=p,g.y=q,d=c._filterArea;var t=d.x-p,u=d.y-q;a.bindBuffer(a.ARRAY_BUFFER,this.vertexBuffer),this.vertexArray[0]=t,this.vertexArray[1]=u+d.height,this.vertexArray[2]=t+d.width,this.vertexArray[3]=u+d.height,this.vertexArray[4]=t,this.vertexArray[5]=u,this.vertexArray[6]=t+d.width,this.vertexArray[7]=u,a.bufferSubData(a.ARRAY_BUFFER,0,this.vertexArray),a.bindBuffer(a.ARRAY_BUFFER,this.uvBuffer),this.uvArray[2]=d.width/this.width,this.uvArray[5]=d.height/this.height,this.uvArray[6]=d.width/this.width,this.uvArray[7]=d.height/this.height,a.bufferSubData(a.ARRAY_BUFFER,0,this.uvArray),a.viewport(0,0,n,o),a.bindFramebuffer(a.FRAMEBUFFER,r),a.activeTexture(a.TEXTURE0),a.bindTexture(a.TEXTURE_2D,e.texture),this.applyFilterPass(m,d,n,o),this.renderSession.shaderManager.setShader(this.defaultShader),a.uniform2f(this.defaultShader.projectionVector,n/2,-o/2),a.uniform2f(this.defaultShader.offsetVector,-p,-q),this.texturePool.push(e),c._glFilterTexture=null},b.WebGLFilterManager.prototype.applyFilterPass=function(a,c,d,e){var f=this.gl,g=a.shaders[f.id];g||(g=new b.PixiShader(f),g.fragmentSrc=a.fragmentSrc,g.uniforms=a.uniforms,g.init(),a.shaders[f.id]=g),this.renderSession.shaderManager.setShader(g),f.uniform2f(g.projectionVector,d/2,-e/2),f.uniform2f(g.offsetVector,0,0),a.uniforms.dimensions&&(a.uniforms.dimensions.value[0]=this.width,a.uniforms.dimensions.value[1]=this.height,a.uniforms.dimensions.value[2]=this.vertexArray[0],a.uniforms.dimensions.value[3]=this.vertexArray[5]),g.syncUniforms(),f.bindBuffer(f.ARRAY_BUFFER,this.vertexBuffer),f.vertexAttribPointer(g.aVertexPosition,2,f.FLOAT,!1,0,0),f.bindBuffer(f.ARRAY_BUFFER,this.uvBuffer),f.vertexAttribPointer(g.aTextureCoord,2,f.FLOAT,!1,0,0),f.bindBuffer(f.ARRAY_BUFFER,this.colorBuffer),f.vertexAttribPointer(g.colorAttribute,2,f.FLOAT,!1,0,0),f.bindBuffer(f.ELEMENT_ARRAY_BUFFER,this.indexBuffer),f.drawElements(f.TRIANGLES,6,f.UNSIGNED_SHORT,0),this.renderSession.drawCount++},b.WebGLFilterManager.prototype.initShaderBuffers=function(){var a=this.gl;this.vertexBuffer=a.createBuffer(),this.uvBuffer=a.createBuffer(),this.colorBuffer=a.createBuffer(),this.indexBuffer=a.createBuffer(),this.vertexArray=new Float32Array([0,0,1,0,0,1,1,1]),a.bindBuffer(a.ARRAY_BUFFER,this.vertexBuffer),a.bufferData(a.ARRAY_BUFFER,this.vertexArray,a.STATIC_DRAW),this.uvArray=new Float32Array([0,0,1,0,0,1,1,1]),a.bindBuffer(a.ARRAY_BUFFER,this.uvBuffer),a.bufferData(a.ARRAY_BUFFER,this.uvArray,a.STATIC_DRAW),this.colorArray=new Float32Array([1,16777215,1,16777215,1,16777215,1,16777215]),a.bindBuffer(a.ARRAY_BUFFER,this.colorBuffer),a.bufferData(a.ARRAY_BUFFER,this.colorArray,a.STATIC_DRAW),a.bindBuffer(a.ELEMENT_ARRAY_BUFFER,this.indexBuffer),a.bufferData(a.ELEMENT_ARRAY_BUFFER,new Uint16Array([0,1,2,1,3,2]),a.STATIC_DRAW)},b.WebGLFilterManager.prototype.destroy=function(){var a=this.gl;this.filterStack=null,this.offsetX=0,this.offsetY=0;for(var b=0;b<this.texturePool.length;b++)this.texturePool[b].destroy();this.texturePool=null,a.deleteBuffer(this.vertexBuffer),a.deleteBuffer(this.uvBuffer),a.deleteBuffer(this.colorBuffer),a.deleteBuffer(this.indexBuffer)},b.FilterTexture=function(a,c,d,e){this.gl=a,this.frameBuffer=a.createFramebuffer(),this.texture=a.createTexture(),e=e||b.scaleModes.DEFAULT,a.bindTexture(a.TEXTURE_2D,this.texture),a.texParameteri(a.TEXTURE_2D,a.TEXTURE_MAG_FILTER,e===b.scaleModes.LINEAR?a.LINEAR:a.NEAREST),a.texParameteri(a.TEXTURE_2D,a.TEXTURE_MIN_FILTER,e===b.scaleModes.LINEAR?a.LINEAR:a.NEAREST),a.texParameteri(a.TEXTURE_2D,a.TEXTURE_WRAP_S,a.CLAMP_TO_EDGE),a.texParameteri(a.TEXTURE_2D,a.TEXTURE_WRAP_T,a.CLAMP_TO_EDGE),a.bindFramebuffer(a.FRAMEBUFFER,this.framebuffer),a.bindFramebuffer(a.FRAMEBUFFER,this.frameBuffer),a.framebufferTexture2D(a.FRAMEBUFFER,a.COLOR_ATTACHMENT0,a.TEXTURE_2D,this.texture,0),this.renderBuffer=a.createRenderbuffer(),a.bindRenderbuffer(a.RENDERBUFFER,this.renderBuffer),a.framebufferRenderbuffer(a.FRAMEBUFFER,a.DEPTH_STENCIL_ATTACHMENT,a.RENDERBUFFER,this.renderBuffer),this.resize(c,d)},b.FilterTexture.prototype.clear=function(){var a=this.gl;a.clearColor(0,0,0,0),a.clear(a.COLOR_BUFFER_BIT)},b.FilterTexture.prototype.resize=function(a,b){if(this.width!==a||this.height!==b){this.width=a,this.height=b;var c=this.gl;c.bindTexture(c.TEXTURE_2D,this.texture),c.texImage2D(c.TEXTURE_2D,0,c.RGBA,a,b,0,c.RGBA,c.UNSIGNED_BYTE,null),c.bindRenderbuffer(c.RENDERBUFFER,this.renderBuffer),c.renderbufferStorage(c.RENDERBUFFER,c.DEPTH_STENCIL,a,b)}},b.FilterTexture.prototype.destroy=function(){var a=this.gl;a.deleteFramebuffer(this.frameBuffer),a.deleteTexture(this.texture),this.frameBuffer=null,this.texture=null},b.CanvasMaskManager=function(){},b.CanvasMaskManager.prototype.pushMask=function(a,c){c.save();var d=a.alpha,e=a.worldTransform;c.setTransform(e.a,e.c,e.b,e.d,e.tx,e.ty),b.CanvasGraphics.renderGraphicsMask(a,c),c.clip(),a.worldAlpha=d},b.CanvasMaskManager.prototype.popMask=function(a){a.restore()},b.CanvasTinter=function(){},b.CanvasTinter.getTintedTexture=function(a,c){var d=a.texture;c=b.CanvasTinter.roundColor(c);var e="#"+("00000"+(0|c).toString(16)).substr(-6);if(d.tintCache=d.tintCache||{},d.tintCache[e])return d.tintCache[e];var f=b.CanvasTinter.canvas||document.createElement("canvas");if(b.CanvasTinter.tintMethod(d,c,f),b.CanvasTinter.convertTintToImage){var g=new Image;g.src=f.toDataURL(),d.tintCache[e]=g}else d.tintCache[e]=f,b.CanvasTinter.canvas=null;return f},b.CanvasTinter.tintWithMultiply=function(a,b,c){var d=c.getContext("2d"),e=a.frame;c.width=e.width,c.height=e.height,d.fillStyle="#"+("00000"+(0|b).toString(16)).substr(-6),d.fillRect(0,0,e.width,e.height),d.globalCompositeOperation="multiply",d.drawImage(a.baseTexture.source,e.x,e.y,e.width,e.height,0,0,e.width,e.height),d.globalCompositeOperation="destination-atop",d.drawImage(a.baseTexture.source,e.x,e.y,e.width,e.height,0,0,e.width,e.height)},b.CanvasTinter.tintWithOverlay=function(a,b,c){var d=c.getContext("2d"),e=a.frame;c.width=e.width,c.height=e.height,d.globalCompositeOperation="copy",d.fillStyle="#"+("00000"+(0|b).toString(16)).substr(-6),d.fillRect(0,0,e.width,e.height),d.globalCompositeOperation="destination-atop",d.drawImage(a.baseTexture.source,e.x,e.y,e.width,e.height,0,0,e.width,e.height)},b.CanvasTinter.tintWithPerPixel=function(a,c,d){var e=d.getContext("2d"),f=a.frame;d.width=f.width,d.height=f.height,e.globalCompositeOperation="copy",e.drawImage(a.baseTexture.source,f.x,f.y,f.width,f.height,0,0,f.width,f.height);for(var g=b.hex2rgb(c),h=g[0],i=g[1],j=g[2],k=e.getImageData(0,0,f.width,f.height),l=k.data,m=0;m<l.length;m+=4)l[m+0]*=h,l[m+1]*=i,l[m+2]*=j;e.putImageData(k,0,0)},b.CanvasTinter.roundColor=function(a){var c=b.CanvasTinter.cacheStepsPerColorChannel,d=b.hex2rgb(a);return d[0]=Math.min(255,d[0]/c*c),d[1]=Math.min(255,d[1]/c*c),d[2]=Math.min(255,d[2]/c*c),b.rgb2hex(d)},b.CanvasTinter.cacheStepsPerColorChannel=8,b.CanvasTinter.convertTintToImage=!1,b.CanvasTinter.canUseMultiply=b.canUseNewCanvasBlendModes(),b.CanvasTinter.tintMethod=b.CanvasTinter.canUseMultiply?b.CanvasTinter.tintWithMultiply:b.CanvasTinter.tintWithPerPixel,b.CanvasRenderer=function(a,c,d,e){b.defaultRenderer||(b.sayHello("Canvas"),b.defaultRenderer=this),this.type=b.CANVAS_RENDERER,this.clearBeforeRender=!0,this.transparent=!!e,b.blendModesCanvas||(b.blendModesCanvas=[],b.canUseNewCanvasBlendModes()?(b.blendModesCanvas[b.blendModes.NORMAL]="source-over",b.blendModesCanvas[b.blendModes.ADD]="lighter",b.blendModesCanvas[b.blendModes.MULTIPLY]="multiply",b.blendModesCanvas[b.blendModes.SCREEN]="screen",b.blendModesCanvas[b.blendModes.OVERLAY]="overlay",b.blendModesCanvas[b.blendModes.DARKEN]="darken",b.blendModesCanvas[b.blendModes.LIGHTEN]="lighten",b.blendModesCanvas[b.blendModes.COLOR_DODGE]="color-dodge",b.blendModesCanvas[b.blendModes.COLOR_BURN]="color-burn",b.blendModesCanvas[b.blendModes.HARD_LIGHT]="hard-light",b.blendModesCanvas[b.blendModes.SOFT_LIGHT]="soft-light",b.blendModesCanvas[b.blendModes.DIFFERENCE]="difference",b.blendModesCanvas[b.blendModes.EXCLUSION]="exclusion",b.blendModesCanvas[b.blendModes.HUE]="hue",b.blendModesCanvas[b.blendModes.SATURATION]="saturation",b.blendModesCanvas[b.blendModes.COLOR]="color",b.blendModesCanvas[b.blendModes.LUMINOSITY]="luminosity"):(b.blendModesCanvas[b.blendModes.NORMAL]="source-over",b.blendModesCanvas[b.blendModes.ADD]="lighter",b.blendModesCanvas[b.blendModes.MULTIPLY]="source-over",b.blendModesCanvas[b.blendModes.SCREEN]="source-over",b.blendModesCanvas[b.blendModes.OVERLAY]="source-over",b.blendModesCanvas[b.blendModes.DARKEN]="source-over",b.blendModesCanvas[b.blendModes.LIGHTEN]="source-over",b.blendModesCanvas[b.blendModes.COLOR_DODGE]="source-over",b.blendModesCanvas[b.blendModes.COLOR_BURN]="source-over",b.blendModesCanvas[b.blendModes.HARD_LIGHT]="source-over",b.blendModesCanvas[b.blendModes.SOFT_LIGHT]="source-over",b.blendModesCanvas[b.blendModes.DIFFERENCE]="source-over",b.blendModesCanvas[b.blendModes.EXCLUSION]="source-over",b.blendModesCanvas[b.blendModes.HUE]="source-over",b.blendModesCanvas[b.blendModes.SATURATION]="source-over",b.blendModesCanvas[b.blendModes.COLOR]="source-over",b.blendModesCanvas[b.blendModes.LUMINOSITY]="source-over")),this.width=a||800,this.height=c||600,this.view=d||document.createElement("canvas"),this.context=this.view.getContext("2d",{alpha:this.transparent}),this.refresh=!0,this.view.width=this.width,this.view.height=this.height,this.count=0,this.maskManager=new b.CanvasMaskManager,this.renderSession={context:this.context,maskManager:this.maskManager,scaleMode:null,smoothProperty:null,roundPixels:!1},"imageSmoothingEnabled"in this.context?this.renderSession.smoothProperty="imageSmoothingEnabled":"webkitImageSmoothingEnabled"in this.context?this.renderSession.smoothProperty="webkitImageSmoothingEnabled":"mozImageSmoothingEnabled"in this.context?this.renderSession.smoothProperty="mozImageSmoothingEnabled":"oImageSmoothingEnabled"in this.context&&(this.renderSession.smoothProperty="oImageSmoothingEnabled")},b.CanvasRenderer.prototype.constructor=b.CanvasRenderer,b.CanvasRenderer.prototype.render=function(a){b.texturesToUpdate.length=0,b.texturesToDestroy.length=0,a.updateTransform(),this.context.setTransform(1,0,0,1,0,0),this.context.globalAlpha=1,navigator.isCocoonJS&&this.view.screencanvas&&(this.context.fillStyle="black",this.context.clear()),!this.transparent&&this.clearBeforeRender?(this.context.fillStyle=a.backgroundColorString,this.context.fillRect(0,0,this.width,this.height)):this.transparent&&this.clearBeforeRender&&this.context.clearRect(0,0,this.width,this.height),this.renderDisplayObject(a),a.interactive&&(a._interactiveEventsAdded||(a._interactiveEventsAdded=!0,a.interactionManager.setTarget(this))),b.Texture.frameUpdates.length>0&&(b.Texture.frameUpdates.length=0)
+},b.CanvasRenderer.prototype.resize=function(a,b){this.width=a,this.height=b,this.view.width=a,this.view.height=b},b.CanvasRenderer.prototype.renderDisplayObject=function(a,b){this.renderSession.context=b||this.context,a._renderCanvas(this.renderSession)},b.CanvasRenderer.prototype.renderStripFlat=function(a){var b=this.context,c=a.verticies,d=c.length/2;this.count++,b.beginPath();for(var e=1;d-2>e;e++){var f=2*e,g=c[f],h=c[f+2],i=c[f+4],j=c[f+1],k=c[f+3],l=c[f+5];b.moveTo(g,j),b.lineTo(h,k),b.lineTo(i,l)}b.fillStyle="#FF0000",b.fill(),b.closePath()},b.CanvasRenderer.prototype.renderStrip=function(a){var b=this.context,c=a.verticies,d=a.uvs,e=c.length/2;this.count++;for(var f=1;e-2>f;f++){var g=2*f,h=c[g],i=c[g+2],j=c[g+4],k=c[g+1],l=c[g+3],m=c[g+5],n=d[g]*a.texture.width,o=d[g+2]*a.texture.width,p=d[g+4]*a.texture.width,q=d[g+1]*a.texture.height,r=d[g+3]*a.texture.height,s=d[g+5]*a.texture.height;b.save(),b.beginPath(),b.moveTo(h,k),b.lineTo(i,l),b.lineTo(j,m),b.closePath(),b.clip();var t=n*r+q*p+o*s-r*p-q*o-n*s,u=h*r+q*j+i*s-r*j-q*i-h*s,v=n*i+h*p+o*j-i*p-h*o-n*j,w=n*r*j+q*i*p+h*o*s-h*r*p-q*o*j-n*i*s,x=k*r+q*m+l*s-r*m-q*l-k*s,y=n*l+k*p+o*m-l*p-k*o-n*m,z=n*r*m+q*l*p+k*o*s-k*r*p-q*o*m-n*l*s;b.transform(u/t,x/t,v/t,y/t,w/t,z/t),b.drawImage(a.texture.baseTexture.source,0,0),b.restore()}},b.CanvasBuffer=function(a,b){this.width=a,this.height=b,this.canvas=document.createElement("canvas"),this.context=this.canvas.getContext("2d"),this.canvas.width=a,this.canvas.height=b},b.CanvasBuffer.prototype.clear=function(){this.context.clearRect(0,0,this.width,this.height)},b.CanvasBuffer.prototype.resize=function(a,b){this.width=this.canvas.width=a,this.height=this.canvas.height=b},b.CanvasGraphics=function(){},b.CanvasGraphics.renderGraphics=function(a,c){for(var d=a.worldAlpha,e="",f=0;f<a.graphicsData.length;f++){var g=a.graphicsData[f],h=g.points;if(c.strokeStyle=e="#"+("00000"+(0|g.lineColor).toString(16)).substr(-6),c.lineWidth=g.lineWidth,g.type===b.Graphics.POLY){c.beginPath(),c.moveTo(h[0],h[1]);for(var i=1;i<h.length/2;i++)c.lineTo(h[2*i],h[2*i+1]);h[0]===h[h.length-2]&&h[1]===h[h.length-1]&&c.closePath(),g.fill&&(c.globalAlpha=g.fillAlpha*d,c.fillStyle=e="#"+("00000"+(0|g.fillColor).toString(16)).substr(-6),c.fill()),g.lineWidth&&(c.globalAlpha=g.lineAlpha*d,c.stroke())}else if(g.type===b.Graphics.RECT)(g.fillColor||0===g.fillColor)&&(c.globalAlpha=g.fillAlpha*d,c.fillStyle=e="#"+("00000"+(0|g.fillColor).toString(16)).substr(-6),c.fillRect(h[0],h[1],h[2],h[3])),g.lineWidth&&(c.globalAlpha=g.lineAlpha*d,c.strokeRect(h[0],h[1],h[2],h[3]));else if(g.type===b.Graphics.CIRC)c.beginPath(),c.arc(h[0],h[1],h[2],0,2*Math.PI),c.closePath(),g.fill&&(c.globalAlpha=g.fillAlpha*d,c.fillStyle=e="#"+("00000"+(0|g.fillColor).toString(16)).substr(-6),c.fill()),g.lineWidth&&(c.globalAlpha=g.lineAlpha*d,c.stroke());else if(g.type===b.Graphics.ELIP){var j=g.points,k=2*j[2],l=2*j[3],m=j[0]-k/2,n=j[1]-l/2;c.beginPath();var o=.5522848,p=k/2*o,q=l/2*o,r=m+k,s=n+l,t=m+k/2,u=n+l/2;c.moveTo(m,u),c.bezierCurveTo(m,u-q,t-p,n,t,n),c.bezierCurveTo(t+p,n,r,u-q,r,u),c.bezierCurveTo(r,u+q,t+p,s,t,s),c.bezierCurveTo(t-p,s,m,u+q,m,u),c.closePath(),g.fill&&(c.globalAlpha=g.fillAlpha*d,c.fillStyle=e="#"+("00000"+(0|g.fillColor).toString(16)).substr(-6),c.fill()),g.lineWidth&&(c.globalAlpha=g.lineAlpha*d,c.stroke())}else if(g.type===b.Graphics.RREC){var v=h[0],w=h[1],x=h[2],y=h[3],z=h[4],A=Math.min(x,y)/2|0;z=z>A?A:z,c.beginPath(),c.moveTo(v,w+z),c.lineTo(v,w+y-z),c.quadraticCurveTo(v,w+y,v+z,w+y),c.lineTo(v+x-z,w+y),c.quadraticCurveTo(v+x,w+y,v+x,w+y-z),c.lineTo(v+x,w+z),c.quadraticCurveTo(v+x,w,v+x-z,w),c.lineTo(v+z,w),c.quadraticCurveTo(v,w,v,w+z),c.closePath(),(g.fillColor||0===g.fillColor)&&(c.globalAlpha=g.fillAlpha*d,c.fillStyle=e="#"+("00000"+(0|g.fillColor).toString(16)).substr(-6),c.fill()),g.lineWidth&&(c.globalAlpha=g.lineAlpha*d,c.stroke())}}},b.CanvasGraphics.renderGraphicsMask=function(a,c){var d=a.graphicsData.length;if(0!==d){d>1&&(d=1,window.console.log("Pixi.js warning: masks in canvas can only mask using the first path in the graphics object"));for(var e=0;1>e;e++){var f=a.graphicsData[e],g=f.points;if(f.type===b.Graphics.POLY){c.beginPath(),c.moveTo(g[0],g[1]);for(var h=1;h<g.length/2;h++)c.lineTo(g[2*h],g[2*h+1]);g[0]===g[g.length-2]&&g[1]===g[g.length-1]&&c.closePath()}else if(f.type===b.Graphics.RECT)c.beginPath(),c.rect(g[0],g[1],g[2],g[3]),c.closePath();else if(f.type===b.Graphics.CIRC)c.beginPath(),c.arc(g[0],g[1],g[2],0,2*Math.PI),c.closePath();else if(f.type===b.Graphics.ELIP){var i=f.points,j=2*i[2],k=2*i[3],l=i[0]-j/2,m=i[1]-k/2;c.beginPath();var n=.5522848,o=j/2*n,p=k/2*n,q=l+j,r=m+k,s=l+j/2,t=m+k/2;c.moveTo(l,t),c.bezierCurveTo(l,t-p,s-o,m,s,m),c.bezierCurveTo(s+o,m,q,t-p,q,t),c.bezierCurveTo(q,t+p,s+o,r,s,r),c.bezierCurveTo(s-o,r,l,t+p,l,t),c.closePath()}else if(f.type===b.Graphics.RREC){var u=g[0],v=g[1],w=g[2],x=g[3],y=g[4],z=Math.min(w,x)/2|0;y=y>z?z:y,c.beginPath(),c.moveTo(u,v+y),c.lineTo(u,v+x-y),c.quadraticCurveTo(u,v+x,u+y,v+x),c.lineTo(u+w-y,v+x),c.quadraticCurveTo(u+w,v+x,u+w,v+x-y),c.lineTo(u+w,v+y),c.quadraticCurveTo(u+w,v,u+w-y,v),c.lineTo(u+y,v),c.quadraticCurveTo(u,v,u,v+y),c.closePath()}}}},b.Graphics=function(){b.DisplayObjectContainer.call(this),this.renderable=!0,this.fillAlpha=1,this.lineWidth=0,this.lineColor="black",this.graphicsData=[],this.tint=16777215,this.blendMode=b.blendModes.NORMAL,this.currentPath={points:[]},this._webGL=[],this.isMask=!1,this.bounds=null,this.boundsPadding=10,this.dirty=!0},b.Graphics.prototype=Object.create(b.DisplayObjectContainer.prototype),b.Graphics.prototype.constructor=b.Graphics,Object.defineProperty(b.Graphics.prototype,"cacheAsBitmap",{get:function(){return this._cacheAsBitmap},set:function(a){this._cacheAsBitmap=a,this._cacheAsBitmap?this._generateCachedSprite():(this.destroyCachedSprite(),this.dirty=!0)}}),b.Graphics.prototype.lineStyle=function(a,c,d){return this.currentPath.points.length||this.graphicsData.pop(),this.lineWidth=a||0,this.lineColor=c||0,this.lineAlpha=arguments.length<3?1:d,this.currentPath={lineWidth:this.lineWidth,lineColor:this.lineColor,lineAlpha:this.lineAlpha,fillColor:this.fillColor,fillAlpha:this.fillAlpha,fill:this.filling,points:[],type:b.Graphics.POLY},this.graphicsData.push(this.currentPath),this},b.Graphics.prototype.moveTo=function(a,c){return this.currentPath.points.length||this.graphicsData.pop(),this.currentPath=this.currentPath={lineWidth:this.lineWidth,lineColor:this.lineColor,lineAlpha:this.lineAlpha,fillColor:this.fillColor,fillAlpha:this.fillAlpha,fill:this.filling,points:[],type:b.Graphics.POLY},this.currentPath.points.push(a,c),this.graphicsData.push(this.currentPath),this},b.Graphics.prototype.lineTo=function(a,b){return this.currentPath.points.push(a,b),this.dirty=!0,this},b.Graphics.prototype.quadraticCurveTo=function(a,b,c,d){0===this.currentPath.points.length&&this.moveTo(0,0);var e,f,g=20,h=this.currentPath.points;0===h.length&&this.moveTo(0,0);for(var i=h[h.length-2],j=h[h.length-1],k=0,l=1;g>=l;l++)k=l/g,e=i+(a-i)*k,f=j+(b-j)*k,h.push(e+(a+(c-a)*k-e)*k,f+(b+(d-b)*k-f)*k);return this.dirty=!0,this},b.Graphics.prototype.bezierCurveTo=function(a,b,c,d,e,f){0===this.currentPath.points.length&&this.moveTo(0,0);for(var g,h,i,j,k,l=20,m=this.currentPath.points,n=m[m.length-2],o=m[m.length-1],p=0,q=1;l>q;q++)p=q/l,g=1-p,h=g*g,i=h*g,j=p*p,k=j*p,m.push(i*n+3*h*p*a+3*g*j*c+k*e,i*o+3*h*p*b+3*g*j*d+k*f);return this.dirty=!0,this},b.Graphics.prototype.arcTo=function(a,b,c,d,e){0===this.currentPath.points.length&&this.moveTo(a,b);var f=this.currentPath.points,g=f[f.length-2],h=f[f.length-1],i=h-b,j=g-a,k=d-b,l=c-a,m=Math.abs(i*l-j*k);if(1e-8>m||0===e)f.push(a,b);else{var n=i*i+j*j,o=k*k+l*l,p=i*k+j*l,q=e*Math.sqrt(n)/m,r=e*Math.sqrt(o)/m,s=q*p/n,t=r*p/o,u=q*l+r*j,v=q*k+r*i,w=j*(r+s),x=i*(r+s),y=l*(q+t),z=k*(q+t),A=Math.atan2(x-v,w-u),B=Math.atan2(z-v,y-u);this.arc(u+a,v+b,e,A,B,j*k>l*i)}return this.dirty=!0,this},b.Graphics.prototype.arc=function(a,b,c,d,e,f){var g=a+Math.cos(d)*c,h=b+Math.sin(d)*c,i=this.currentPath.points;if((0!==i.length&&i[i.length-2]!==g||i[i.length-1]!==h)&&(this.moveTo(g,h),i=this.currentPath.points),d===e)return this;!f&&d>=e?e+=2*Math.PI:f&&e>=d&&(d+=2*Math.PI);var j=f?-1*(d-e):e-d,k=Math.abs(j)/(2*Math.PI)*40;if(0===j)return this;for(var l=j/(2*k),m=2*l,n=Math.cos(l),o=Math.sin(l),p=k-1,q=p%1/p,r=0;p>=r;r++){var s=r+q*r,t=l+d+m*s,u=Math.cos(t),v=-Math.sin(t);i.push((n*u+o*v)*c+a,(n*-v+o*u)*c+b)}return this.dirty=!0,this},b.Graphics.prototype.drawPath=function(a){return this.currentPath.points.length||this.graphicsData.pop(),this.currentPath=this.currentPath={lineWidth:this.lineWidth,lineColor:this.lineColor,lineAlpha:this.lineAlpha,fillColor:this.fillColor,fillAlpha:this.fillAlpha,fill:this.filling,points:[],type:b.Graphics.POLY},this.graphicsData.push(this.currentPath),this.currentPath.points=this.currentPath.points.concat(a),this.dirty=!0,this},b.Graphics.prototype.beginFill=function(a,b){return this.filling=!0,this.fillColor=a||0,this.fillAlpha=arguments.length<2?1:b,this},b.Graphics.prototype.endFill=function(){return this.filling=!1,this.fillColor=null,this.fillAlpha=1,this},b.Graphics.prototype.drawRect=function(a,c,d,e){return this.currentPath.points.length||this.graphicsData.pop(),this.currentPath={lineWidth:this.lineWidth,lineColor:this.lineColor,lineAlpha:this.lineAlpha,fillColor:this.fillColor,fillAlpha:this.fillAlpha,fill:this.filling,points:[a,c,d,e],type:b.Graphics.RECT},this.graphicsData.push(this.currentPath),this.dirty=!0,this},b.Graphics.prototype.drawRoundedRect=function(a,c,d,e,f){return this.currentPath.points.length||this.graphicsData.pop(),this.currentPath={lineWidth:this.lineWidth,lineColor:this.lineColor,lineAlpha:this.lineAlpha,fillColor:this.fillColor,fillAlpha:this.fillAlpha,fill:this.filling,points:[a,c,d,e,f],type:b.Graphics.RREC},this.graphicsData.push(this.currentPath),this.dirty=!0,this},b.Graphics.prototype.drawCircle=function(a,c,d){return this.currentPath.points.length||this.graphicsData.pop(),this.currentPath={lineWidth:this.lineWidth,lineColor:this.lineColor,lineAlpha:this.lineAlpha,fillColor:this.fillColor,fillAlpha:this.fillAlpha,fill:this.filling,points:[a,c,d,d],type:b.Graphics.CIRC},this.graphicsData.push(this.currentPath),this.dirty=!0,this},b.Graphics.prototype.drawEllipse=function(a,c,d,e){return this.currentPath.points.length||this.graphicsData.pop(),this.currentPath={lineWidth:this.lineWidth,lineColor:this.lineColor,lineAlpha:this.lineAlpha,fillColor:this.fillColor,fillAlpha:this.fillAlpha,fill:this.filling,points:[a,c,d,e],type:b.Graphics.ELIP},this.graphicsData.push(this.currentPath),this.dirty=!0,this},b.Graphics.prototype.clear=function(){return this.lineWidth=0,this.filling=!1,this.dirty=!0,this.clearDirty=!0,this.graphicsData=[],this.bounds=null,this},b.Graphics.prototype.generateTexture=function(){var a=this.getBounds(),c=new b.CanvasBuffer(a.width,a.height),d=b.Texture.fromCanvas(c.canvas);return c.context.translate(-a.x,-a.y),b.CanvasGraphics.renderGraphics(this,c.context),d},b.Graphics.prototype._renderWebGL=function(a){if(this.visible!==!1&&0!==this.alpha&&this.isMask!==!0){if(this._cacheAsBitmap)return this.dirty&&(this._generateCachedSprite(),b.updateWebGLTexture(this._cachedSprite.texture.baseTexture,a.gl),this.dirty=!1),this._cachedSprite.alpha=this.alpha,b.Sprite.prototype._renderWebGL.call(this._cachedSprite,a),void 0;if(a.spriteBatch.stop(),a.blendModeManager.setBlendMode(this.blendMode),this._mask&&a.maskManager.pushMask(this._mask,a),this._filters&&a.filterManager.pushFilter(this._filterBlock),this.blendMode!==a.spriteBatch.currentBlendMode){a.spriteBatch.currentBlendMode=this.blendMode;var c=b.blendModesWebGL[a.spriteBatch.currentBlendMode];a.spriteBatch.gl.blendFunc(c[0],c[1])}if(b.WebGLGraphics.renderGraphics(this,a),this.children.length){a.spriteBatch.start();for(var d=0,e=this.children.length;e>d;d++)this.children[d]._renderWebGL(a);a.spriteBatch.stop()}this._filters&&a.filterManager.popFilter(),this._mask&&a.maskManager.popMask(this.mask,a),a.drawCount++,a.spriteBatch.start()}},b.Graphics.prototype._renderCanvas=function(a){if(this.visible!==!1&&0!==this.alpha&&this.isMask!==!0){var c=a.context,d=this.worldTransform;this.blendMode!==a.currentBlendMode&&(a.currentBlendMode=this.blendMode,c.globalCompositeOperation=b.blendModesCanvas[a.currentBlendMode]),this._mask&&a.maskManager.pushMask(this._mask,a.context),c.setTransform(d.a,d.c,d.b,d.d,d.tx,d.ty),b.CanvasGraphics.renderGraphics(this,c);for(var e=0,f=this.children.length;f>e;e++)this.children[e]._renderCanvas(a);this._mask&&a.maskManager.popMask(a.context)}},b.Graphics.prototype.getBounds=function(a){this.bounds||this.updateBounds();var b=this.bounds.x,c=this.bounds.width+this.bounds.x,d=this.bounds.y,e=this.bounds.height+this.bounds.y,f=a||this.worldTransform,g=f.a,h=f.c,i=f.b,j=f.d,k=f.tx,l=f.ty,m=g*c+i*e+k,n=j*e+h*c+l,o=g*b+i*e+k,p=j*e+h*b+l,q=g*b+i*d+k,r=j*d+h*b+l,s=g*c+i*d+k,t=j*d+h*c+l,u=m,v=n,w=m,x=n;w=w>o?o:w,w=w>q?q:w,w=w>s?s:w,x=x>p?p:x,x=x>r?r:x,x=x>t?t:x,u=o>u?o:u,u=q>u?q:u,u=s>u?s:u,v=p>v?p:v,v=r>v?r:v,v=t>v?t:v;var y=this._bounds;return y.x=w,y.width=u-w,y.y=x,y.height=v-x,y},b.Graphics.prototype.updateBounds=function(){for(var a,c,d,e,f,g=1/0,h=-1/0,i=1/0,j=-1/0,k=0;k<this.graphicsData.length;k++){var l=this.graphicsData[k],m=l.type,n=l.lineWidth;if(a=l.points,m===b.Graphics.RECT)c=a[0]-n/2,d=a[1]-n/2,e=a[2]+n,f=a[3]+n,g=g>c?c:g,h=c+e>h?c+e:h,i=i>d?c:i,j=d+f>j?d+f:j;else if(m===b.Graphics.CIRC||m===b.Graphics.ELIP)c=a[0],d=a[1],e=a[2]+n/2,f=a[3]+n/2,g=g>c-e?c-e:g,h=c+e>h?c+e:h,i=i>d-f?d-f:i,j=d+f>j?d+f:j;else for(var o=0;o<a.length;o+=2)c=a[o],d=a[o+1],g=g>c-n?c-n:g,h=c+n>h?c+n:h,i=i>d-n?d-n:i,j=d+n>j?d+n:j}var p=this.boundsPadding;this.bounds=new b.Rectangle(g-p,i-p,h-g+2*p,j-i+2*p)},b.Graphics.prototype._generateCachedSprite=function(){var a=this.getLocalBounds();if(this._cachedSprite)this._cachedSprite.buffer.resize(a.width,a.height);else{var c=new b.CanvasBuffer(a.width,a.height),d=b.Texture.fromCanvas(c.canvas);this._cachedSprite=new b.Sprite(d),this._cachedSprite.buffer=c,this._cachedSprite.worldTransform=this.worldTransform}this._cachedSprite.anchor.x=-(a.x/a.width),this._cachedSprite.anchor.y=-(a.y/a.height),this._cachedSprite.buffer.context.translate(-a.x,-a.y),b.CanvasGraphics.renderGraphics(this,this._cachedSprite.buffer.context),this._cachedSprite.alpha=this.alpha},b.Graphics.prototype.destroyCachedSprite=function(){this._cachedSprite.texture.destroy(!0),this._cachedSprite=null},b.Graphics.POLY=0,b.Graphics.RECT=1,b.Graphics.CIRC=2,b.Graphics.ELIP=3,b.Graphics.RREC=4,b.Strip=function(a){b.DisplayObjectContainer.call(this),this.texture=a,this.uvs=new b.Float32Array([0,1,1,1,1,0,0,1]),this.verticies=new b.Float32Array([0,0,100,0,100,100,0,100]),this.colors=new b.Float32Array([1,1,1,1]),this.indices=new b.Uint16Array([0,1,2,3]),this.dirty=!0},b.Strip.prototype=Object.create(b.DisplayObjectContainer.prototype),b.Strip.prototype.constructor=b.Strip,b.Strip.prototype._renderWebGL=function(a){!this.visible||this.alpha<=0||(a.spriteBatch.stop(),this._vertexBuffer||this._initWebGL(a),a.shaderManager.setShader(a.shaderManager.stripShader),this._renderStrip(a),a.spriteBatch.start())},b.Strip.prototype._initWebGL=function(a){var b=a.gl;this._vertexBuffer=b.createBuffer(),this._indexBuffer=b.createBuffer(),this._uvBuffer=b.createBuffer(),this._colorBuffer=b.createBuffer(),b.bindBuffer(b.ARRAY_BUFFER,this._vertexBuffer),b.bufferData(b.ARRAY_BUFFER,this.verticies,b.DYNAMIC_DRAW),b.bindBuffer(b.ARRAY_BUFFER,this._uvBuffer),b.bufferData(b.ARRAY_BUFFER,this.uvs,b.STATIC_DRAW),b.bindBuffer(b.ARRAY_BUFFER,this._colorBuffer),b.bufferData(b.ARRAY_BUFFER,this.colors,b.STATIC_DRAW),b.bindBuffer(b.ELEMENT_ARRAY_BUFFER,this._indexBuffer),b.bufferData(b.ELEMENT_ARRAY_BUFFER,this.indices,b.STATIC_DRAW)},b.Strip.prototype._renderStrip=function(a){var c=a.gl,d=a.projection,e=a.offset,f=a.shaderManager.stripShader;c.blendFunc(c.ONE,c.ONE_MINUS_SRC_ALPHA),c.uniformMatrix3fv(f.translationMatrix,!1,this.worldTransform.toArray(!0)),c.uniform2f(f.projectionVector,d.x,-d.y),c.uniform2f(f.offsetVector,-e.x,-e.y),c.uniform1f(f.alpha,1),this.dirty?(this.dirty=!1,c.bindBuffer(c.ARRAY_BUFFER,this._vertexBuffer),c.bufferData(c.ARRAY_BUFFER,this.verticies,c.STATIC_DRAW),c.vertexAttribPointer(f.aVertexPosition,2,c.FLOAT,!1,0,0),c.bindBuffer(c.ARRAY_BUFFER,this._uvBuffer),c.bufferData(c.ARRAY_BUFFER,this.uvs,c.STATIC_DRAW),c.vertexAttribPointer(f.aTextureCoord,2,c.FLOAT,!1,0,0),c.activeTexture(c.TEXTURE0),c.bindTexture(c.TEXTURE_2D,this.texture.baseTexture._glTextures[c.id]||b.createWebGLTexture(this.texture.baseTexture,c)),c.bindBuffer(c.ELEMENT_ARRAY_BUFFER,this._indexBuffer),c.bufferData(c.ELEMENT_ARRAY_BUFFER,this.indices,c.STATIC_DRAW)):(c.bindBuffer(c.ARRAY_BUFFER,this._vertexBuffer),c.bufferSubData(c.ARRAY_BUFFER,0,this.verticies),c.vertexAttribPointer(f.aVertexPosition,2,c.FLOAT,!1,0,0),c.bindBuffer(c.ARRAY_BUFFER,this._uvBuffer),c.vertexAttribPointer(f.aTextureCoord,2,c.FLOAT,!1,0,0),c.activeTexture(c.TEXTURE0),c.bindTexture(c.TEXTURE_2D,this.texture.baseTexture._glTextures[c.id]||b.createWebGLTexture(this.texture.baseTexture,c)),c.bindBuffer(c.ELEMENT_ARRAY_BUFFER,this._indexBuffer)),c.drawElements(c.TRIANGLE_STRIP,this.indices.length,c.UNSIGNED_SHORT,0)},b.Strip.prototype._renderCanvas=function(a){var b=a.context,c=this.worldTransform;a.roundPixels?b.setTransform(c.a,c.c,c.b,c.d,0|c.tx,0|c.ty):b.setTransform(c.a,c.c,c.b,c.d,c.tx,c.ty);var d=this,e=d.verticies,f=d.uvs,g=e.length/2;this.count++;for(var h=0;g-2>h;h++){var i=2*h,j=e[i],k=e[i+2],l=e[i+4],m=e[i+1],n=e[i+3],o=e[i+5],p=(j+k+l)/3,q=(m+n+o)/3,r=j-p,s=m-q,t=Math.sqrt(r*r+s*s);j=p+r/t*(t+3),m=q+s/t*(t+3),r=k-p,s=n-q,t=Math.sqrt(r*r+s*s),k=p+r/t*(t+3),n=q+s/t*(t+3),r=l-p,s=o-q,t=Math.sqrt(r*r+s*s),l=p+r/t*(t+3),o=q+s/t*(t+3);var u=f[i]*d.texture.width,v=f[i+2]*d.texture.width,w=f[i+4]*d.texture.width,x=f[i+1]*d.texture.height,y=f[i+3]*d.texture.height,z=f[i+5]*d.texture.height;b.save(),b.beginPath(),b.moveTo(j,m),b.lineTo(k,n),b.lineTo(l,o),b.closePath(),b.clip();var A=u*y+x*w+v*z-y*w-x*v-u*z,B=j*y+x*l+k*z-y*l-x*k-j*z,C=u*k+j*w+v*l-k*w-j*v-u*l,D=u*y*l+x*k*w+j*v*z-j*y*w-x*v*l-u*k*z,E=m*y+x*o+n*z-y*o-x*n-m*z,F=u*n+m*w+v*o-n*w-m*v-u*o,G=u*y*o+x*n*w+m*v*z-m*y*w-x*v*o-u*n*z;b.transform(B/A,E/A,C/A,F/A,D/A,G/A),b.drawImage(d.texture.baseTexture.source,0,0),b.restore()}},b.Strip.prototype.onTextureUpdate=function(){this.updateFrame=!0},b.Rope=function(a,c){b.Strip.call(this,a),this.points=c,this.verticies=new b.Float32Array(4*c.length),this.uvs=new b.Float32Array(4*c.length),this.colors=new b.Float32Array(2*c.length),this.indices=new b.Uint16Array(2*c.length),this.refresh()},b.Rope.prototype=Object.create(b.Strip.prototype),b.Rope.prototype.constructor=b.Rope,b.Rope.prototype.refresh=function(){var a=this.points;if(!(a.length<1)){var b=this.uvs,c=a[0],d=this.indices,e=this.colors;this.count-=.2,b[0]=0,b[1]=0,b[2]=0,b[3]=1,e[0]=1,e[1]=1,d[0]=0,d[1]=1;for(var f,g,h,i=a.length,j=1;i>j;j++)f=a[j],g=4*j,h=j/(i-1),j%2?(b[g]=h,b[g+1]=0,b[g+2]=h,b[g+3]=1):(b[g]=h,b[g+1]=0,b[g+2]=h,b[g+3]=1),g=2*j,e[g]=1,e[g+1]=1,g=2*j,d[g]=g,d[g+1]=g+1,c=f}},b.Rope.prototype.updateTransform=function(){var a=this.points;if(!(a.length<1)){var c,d=a[0],e={x:0,y:0};this.count-=.2;for(var f,g,h,i,j,k=this.verticies,l=a.length,m=0;l>m;m++)f=a[m],g=4*m,c=m<a.length-1?a[m+1]:f,e.y=-(c.x-d.x),e.x=c.y-d.y,h=10*(1-m/(l-1)),h>1&&(h=1),i=Math.sqrt(e.x*e.x+e.y*e.y),j=this.texture.height/2,e.x/=i,e.y/=i,e.x*=j,e.y*=j,k[g]=f.x+e.x,k[g+1]=f.y+e.y,k[g+2]=f.x-e.x,k[g+3]=f.y-e.y,d=f;b.DisplayObjectContainer.prototype.updateTransform.call(this)}},b.Rope.prototype.setTexture=function(a){this.texture=a},b.TilingSprite=function(a,c,d){b.Sprite.call(this,a),this._width=c||100,this._height=d||100,this.tileScale=new b.Point(1,1),this.tileScaleOffset=new b.Point(1,1),this.tilePosition=new b.Point(0,0),this.renderable=!0,this.tint=16777215,this.blendMode=b.blendModes.NORMAL},b.TilingSprite.prototype=Object.create(b.Sprite.prototype),b.TilingSprite.prototype.constructor=b.TilingSprite,Object.defineProperty(b.TilingSprite.prototype,"width",{get:function(){return this._width},set:function(a){this._width=a}}),Object.defineProperty(b.TilingSprite.prototype,"height",{get:function(){return this._height},set:function(a){this._height=a}}),b.TilingSprite.prototype.setTexture=function(a){this.texture!==a&&(this.texture=a,this.refreshTexture=!0,this.cachedTint=16777215)},b.TilingSprite.prototype._renderWebGL=function(a){if(this.visible!==!1&&0!==this.alpha){var c,d;for(this._mask&&(a.spriteBatch.stop(),a.maskManager.pushMask(this.mask,a),a.spriteBatch.start()),this._filters&&(a.spriteBatch.flush(),a.filterManager.pushFilter(this._filterBlock)),!this.tilingTexture||this.refreshTexture?(this.generateTilingTexture(!0),this.tilingTexture&&this.tilingTexture.needsUpdate&&(b.updateWebGLTexture(this.tilingTexture.baseTexture,a.gl),this.tilingTexture.needsUpdate=!1)):a.spriteBatch.renderTilingSprite(this),c=0,d=this.children.length;d>c;c++)this.children[c]._renderWebGL(a);a.spriteBatch.stop(),this._filters&&a.filterManager.popFilter(),this._mask&&a.maskManager.popMask(a),a.spriteBatch.start()}},b.TilingSprite.prototype._renderCanvas=function(a){if(this.visible!==!1&&0!==this.alpha){var c=a.context;this._mask&&a.maskManager.pushMask(this._mask,c),c.globalAlpha=this.worldAlpha;var d,e,f=this.worldTransform;if(c.setTransform(f.a,f.c,f.b,f.d,f.tx,f.ty),!this.__tilePattern||this.refreshTexture){if(this.generateTilingTexture(!1),!this.tilingTexture)return;this.__tilePattern=c.createPattern(this.tilingTexture.baseTexture.source,"repeat")}this.blendMode!==a.currentBlendMode&&(a.currentBlendMode=this.blendMode,c.globalCompositeOperation=b.blendModesCanvas[a.currentBlendMode]);var g=this.tilePosition,h=this.tileScale;for(g.x%=this.tilingTexture.baseTexture.width,g.y%=this.tilingTexture.baseTexture.height,c.scale(h.x,h.y),c.translate(g.x,g.y),c.fillStyle=this.__tilePattern,c.fillRect(-g.x+this.anchor.x*-this._width,-g.y+this.anchor.y*-this._height,this._width/h.x,this._height/h.y),c.scale(1/h.x,1/h.y),c.translate(-g.x,-g.y),this._mask&&a.maskManager.popMask(a.context),d=0,e=this.children.length;e>d;d++)this.children[d]._renderCanvas(a)}},b.TilingSprite.prototype.getBounds=function(){var a=this._width,b=this._height,c=a*(1-this.anchor.x),d=a*-this.anchor.x,e=b*(1-this.anchor.y),f=b*-this.anchor.y,g=this.worldTransform,h=g.a,i=g.c,j=g.b,k=g.d,l=g.tx,m=g.ty,n=h*d+j*f+l,o=k*f+i*d+m,p=h*c+j*f+l,q=k*f+i*c+m,r=h*c+j*e+l,s=k*e+i*c+m,t=h*d+j*e+l,u=k*e+i*d+m,v=-1/0,w=-1/0,x=1/0,y=1/0;x=x>n?n:x,x=x>p?p:x,x=x>r?r:x,x=x>t?t:x,y=y>o?o:y,y=y>q?q:y,y=y>s?s:y,y=y>u?u:y,v=n>v?n:v,v=p>v?p:v,v=r>v?r:v,v=t>v?t:v,w=o>w?o:w,w=q>w?q:w,w=s>w?s:w,w=u>w?u:w;var z=this._bounds;return z.x=x,z.width=v-x,z.y=y,z.height=w-y,this._currentBounds=z,z},b.TilingSprite.prototype.onTextureUpdate=function(){},b.TilingSprite.prototype.generateTilingTexture=function(a){if(this.texture.baseTexture.hasLoaded){var c,d,e=this.texture,f=e.frame,g=f.width!==e.baseTexture.width||f.height!==e.baseTexture.height,h=!1;if(a?(c=b.getNextPowerOfTwo(f.width),d=b.getNextPowerOfTwo(f.height),(f.width!==c||f.height!==d)&&(h=!0)):g&&(c=f.width,d=f.height,h=!0),h){var i;this.tilingTexture&&this.tilingTexture.isTiling?(i=this.tilingTexture.canvasBuffer,i.resize(c,d),this.tilingTexture.baseTexture.width=c,this.tilingTexture.baseTexture.height=d,this.tilingTexture.needsUpdate=!0):(i=new b.CanvasBuffer(c,d),this.tilingTexture=b.Texture.fromCanvas(i.canvas),this.tilingTexture.canvasBuffer=i,this.tilingTexture.isTiling=!0),i.context.drawImage(e.baseTexture.source,e.crop.x,e.crop.y,e.crop.width,e.crop.height,0,0,c,d),this.tileScaleOffset.x=f.width/c,this.tileScaleOffset.y=f.height/d}else this.tilingTexture&&this.tilingTexture.isTiling&&this.tilingTexture.destroy(!0),this.tileScaleOffset.x=1,this.tileScaleOffset.y=1,this.tilingTexture=e;this.refreshTexture=!1,this.tilingTexture.baseTexture._powerOf2=!0}};var f={};f.BoneData=function(a,b){this.name=a,this.parent=b},f.BoneData.prototype={length:0,x:0,y:0,rotation:0,scaleX:1,scaleY:1},f.SlotData=function(a,b){this.name=a,this.boneData=b},f.SlotData.prototype={r:1,g:1,b:1,a:1,attachmentName:null},f.Bone=function(a,b){this.data=a,this.parent=b,this.setToSetupPose()},f.Bone.yDown=!1,f.Bone.prototype={x:0,y:0,rotation:0,scaleX:1,scaleY:1,m00:0,m01:0,worldX:0,m10:0,m11:0,worldY:0,worldRotation:0,worldScaleX:1,worldScaleY:1,updateWorldTransform:function(a,b){var c=this.parent;null!=c?(this.worldX=this.x*c.m00+this.y*c.m01+c.worldX,this.worldY=this.x*c.m10+this.y*c.m11+c.worldY,this.worldScaleX=c.worldScaleX*this.scaleX,this.worldScaleY=c.worldScaleY*this.scaleY,this.worldRotation=c.worldRotation+this.rotation):(this.worldX=this.x,this.worldY=this.y,this.worldScaleX=this.scaleX,this.worldScaleY=this.scaleY,this.worldRotation=this.rotation);var d=this.worldRotation*Math.PI/180,e=Math.cos(d),g=Math.sin(d);this.m00=e*this.worldScaleX,this.m10=g*this.worldScaleX,this.m01=-g*this.worldScaleY,this.m11=e*this.worldScaleY,a&&(this.m00=-this.m00,this.m01=-this.m01),b&&(this.m10=-this.m10,this.m11=-this.m11),f.Bone.yDown&&(this.m10=-this.m10,this.m11=-this.m11)},setToSetupPose:function(){var a=this.data;this.x=a.x,this.y=a.y,this.rotation=a.rotation,this.scaleX=a.scaleX,this.scaleY=a.scaleY}},f.Slot=function(a,b,c){this.data=a,this.skeleton=b,this.bone=c,this.setToSetupPose()},f.Slot.prototype={r:1,g:1,b:1,a:1,_attachmentTime:0,attachment:null,setAttachment:function(a){this.attachment=a,this._attachmentTime=this.skeleton.time},setAttachmentTime:function(a){this._attachmentTime=this.skeleton.time-a},getAttachmentTime:function(){return this.skeleton.time-this._attachmentTime},setToSetupPose:function(){var a=this.data;this.r=a.r,this.g=a.g,this.b=a.b,this.a=a.a;for(var b=this.skeleton.data.slots,c=0,d=b.length;d>c;c++)if(b[c]==a){this.setAttachment(a.attachmentName?this.skeleton.getAttachmentBySlotIndex(c,a.attachmentName):null);break}}},f.Skin=function(a){this.name=a,this.attachments={}},f.Skin.prototype={addAttachment:function(a,b,c){this.attachments[a+":"+b]=c},getAttachment:function(a,b){return this.attachments[a+":"+b]},_attachAll:function(a,b){for(var c in b.attachments){var d=c.indexOf(":"),e=parseInt(c.substring(0,d),10),f=c.substring(d+1),g=a.slots[e];if(g.attachment&&g.attachment.name==f){var h=this.getAttachment(e,f);h&&g.setAttachment(h)}}}},f.Animation=function(a,b,c){this.name=a,this.timelines=b,this.duration=c},f.Animation.prototype={apply:function(a,b,c){c&&this.duration&&(b%=this.duration);for(var d=this.timelines,e=0,f=d.length;f>e;e++)d[e].apply(a,b,1)},mix:function(a,b,c,d){c&&this.duration&&(b%=this.duration);for(var e=this.timelines,f=0,g=e.length;g>f;f++)e[f].apply(a,b,d)}},f.binarySearch=function(a,b,c){var d=0,e=Math.floor(a.length/c)-2;if(!e)return c;for(var f=e>>>1;;){if(a[(f+1)*c]<=b?d=f+1:e=f,d==e)return(d+1)*c;f=d+e>>>1}},f.linearSearch=function(a,b,c){for(var d=0,e=a.length-c;e>=d;d+=c)if(a[d]>b)return d;return-1},f.Curves=function(a){this.curves=[],this.curves.length=6*(a-1)},f.Curves.prototype={setLinear:function(a){this.curves[6*a]=0},setStepped:function(a){this.curves[6*a]=-1},setCurve:function(a,b,c,d,e){var f=.1,g=f*f,h=g*f,i=3*f,j=3*g,k=6*g,l=6*h,m=2*-b+d,n=2*-c+e,o=3*(b-d)+1,p=3*(c-e)+1,q=6*a,r=this.curves;r[q]=b*i+m*j+o*h,r[q+1]=c*i+n*j+p*h,r[q+2]=m*k+o*l,r[q+3]=n*k+p*l,r[q+4]=o*l,r[q+5]=p*l},getCurvePercent:function(a,b){b=0>b?0:b>1?1:b;var c=6*a,d=this.curves,e=d[c];if(!e)return b;if(-1==e)return 0;for(var f=d[c+1],g=d[c+2],h=d[c+3],i=d[c+4],j=d[c+5],k=e,l=f,m=8;;){if(k>=b){var n=k-e,o=l-f;return o+(l-o)*(b-n)/(k-n)}if(!m)break;m--,e+=g,f+=h,g+=i,h+=j,k+=e,l+=f}return l+(1-l)*(b-k)/(1-k)}},f.RotateTimeline=function(a){this.curves=new f.Curves(a),this.frames=[],this.frames.length=2*a},f.RotateTimeline.prototype={boneIndex:0,getFrameCount:function(){return this.frames.length/2},setFrame:function(a,b,c){a*=2,this.frames[a]=b,this.frames[a+1]=c},apply:function(a,b,c){var d,e=this.frames;if(!(b<e[0])){var g=a.bones[this.boneIndex];if(b>=e[e.length-2]){for(d=g.data.rotation+e[e.length-1]-g.rotation;d>180;)d-=360;for(;-180>d;)d+=360;return g.rotation+=d*c,void 0}var h=f.binarySearch(e,b,2),i=e[h-1],j=e[h],k=1-(b-j)/(e[h-2]-j);for(k=this.curves.getCurvePercent(h/2-1,k),d=e[h+1]-i;d>180;)d-=360;for(;-180>d;)d+=360;for(d=g.data.rotation+(i+d*k)-g.rotation;d>180;)d-=360;for(;-180>d;)d+=360;g.rotation+=d*c}}},f.TranslateTimeline=function(a){this.curves=new f.Curves(a),this.frames=[],this.frames.length=3*a},f.TranslateTimeline.prototype={boneIndex:0,getFrameCount:function(){return this.frames.length/3},setFrame:function(a,b,c,d){a*=3,this.frames[a]=b,this.frames[a+1]=c,this.frames[a+2]=d},apply:function(a,b,c){var d=this.frames;if(!(b<d[0])){var e=a.bones[this.boneIndex];if(b>=d[d.length-3])return e.x+=(e.data.x+d[d.length-2]-e.x)*c,e.y+=(e.data.y+d[d.length-1]-e.y)*c,void 0;var g=f.binarySearch(d,b,3),h=d[g-2],i=d[g-1],j=d[g],k=1-(b-j)/(d[g+-3]-j);k=this.curves.getCurvePercent(g/3-1,k),e.x+=(e.data.x+h+(d[g+1]-h)*k-e.x)*c,e.y+=(e.data.y+i+(d[g+2]-i)*k-e.y)*c}}},f.ScaleTimeline=function(a){this.curves=new f.Curves(a),this.frames=[],this.frames.length=3*a},f.ScaleTimeline.prototype={boneIndex:0,getFrameCount:function(){return this.frames.length/3},setFrame:function(a,b,c,d){a*=3,this.frames[a]=b,this.frames[a+1]=c,this.frames[a+2]=d},apply:function(a,b,c){var d=this.frames;if(!(b<d[0])){var e=a.bones[this.boneIndex];if(b>=d[d.length-3])return e.scaleX+=(e.data.scaleX-1+d[d.length-2]-e.scaleX)*c,e.scaleY+=(e.data.scaleY-1+d[d.length-1]-e.scaleY)*c,void 0;var g=f.binarySearch(d,b,3),h=d[g-2],i=d[g-1],j=d[g],k=1-(b-j)/(d[g+-3]-j);k=this.curves.getCurvePercent(g/3-1,k),e.scaleX+=(e.data.scaleX-1+h+(d[g+1]-h)*k-e.scaleX)*c,e.scaleY+=(e.data.scaleY-1+i+(d[g+2]-i)*k-e.scaleY)*c}}},f.ColorTimeline=function(a){this.curves=new f.Curves(a),this.frames=[],this.frames.length=5*a},f.ColorTimeline.prototype={slotIndex:0,getFrameCount:function(){return this.frames.length/5},setFrame:function(a,b,c,d,e,f){a*=5,this.frames[a]=b,this.frames[a+1]=c,this.frames[a+2]=d,this.frames[a+3]=e,this.frames[a+4]=f},apply:function(a,b,c){var d=this.frames;if(!(b<d[0])){var e=a.slots[this.slotIndex];if(b>=d[d.length-5]){var g=d.length-1;return e.r=d[g-3],e.g=d[g-2],e.b=d[g-1],e.a=d[g],void 0}var h=f.binarySearch(d,b,5),i=d[h-4],j=d[h-3],k=d[h-2],l=d[h-1],m=d[h],n=1-(b-m)/(d[h-5]-m);n=this.curves.getCurvePercent(h/5-1,n);var o=i+(d[h+1]-i)*n,p=j+(d[h+2]-j)*n,q=k+(d[h+3]-k)*n,r=l+(d[h+4]-l)*n;1>c?(e.r+=(o-e.r)*c,e.g+=(p-e.g)*c,e.b+=(q-e.b)*c,e.a+=(r-e.a)*c):(e.r=o,e.g=p,e.b=q,e.a=r)}}},f.AttachmentTimeline=function(a){this.curves=new f.Curves(a),this.frames=[],this.frames.length=a,this.attachmentNames=[],this.attachmentNames.length=a},f.AttachmentTimeline.prototype={slotIndex:0,getFrameCount:function(){return this.frames.length},setFrame:function(a,b,c){this.frames[a]=b,this.attachmentNames[a]=c},apply:function(a,b){var c=this.frames;if(!(b<c[0])){var d;d=b>=c[c.length-1]?c.length-1:f.binarySearch(c,b,1)-1;var e=this.attachmentNames[d];a.slots[this.slotIndex].setAttachment(e?a.getAttachmentBySlotIndex(this.slotIndex,e):null)}}},f.SkeletonData=function(){this.bones=[],this.slots=[],this.skins=[],this.animations=[]},f.SkeletonData.prototype={defaultSkin:null,findBone:function(a){for(var b=this.bones,c=0,d=b.length;d>c;c++)if(b[c].name==a)return b[c];return null},findBoneIndex:function(a){for(var b=this.bones,c=0,d=b.length;d>c;c++)if(b[c].name==a)return c;return-1},findSlot:function(a){for(var b=this.slots,c=0,d=b.length;d>c;c++)if(b[c].name==a)return slot[c];return null},findSlotIndex:function(a){for(var b=this.slots,c=0,d=b.length;d>c;c++)if(b[c].name==a)return c;return-1},findSkin:function(a){for(var b=this.skins,c=0,d=b.length;d>c;c++)if(b[c].name==a)return b[c];return null},findAnimation:function(a){for(var b=this.animations,c=0,d=b.length;d>c;c++)if(b[c].name==a)return b[c];return null}},f.Skeleton=function(a){this.data=a,this.bones=[];
+for(var b=0,c=a.bones.length;c>b;b++){var d=a.bones[b],e=d.parent?this.bones[a.bones.indexOf(d.parent)]:null;this.bones.push(new f.Bone(d,e))}for(this.slots=[],this.drawOrder=[],b=0,c=a.slots.length;c>b;b++){var g=a.slots[b],h=this.bones[a.bones.indexOf(g.boneData)],i=new f.Slot(g,this,h);this.slots.push(i),this.drawOrder.push(i)}},f.Skeleton.prototype={x:0,y:0,skin:null,r:1,g:1,b:1,a:1,time:0,flipX:!1,flipY:!1,updateWorldTransform:function(){for(var a=this.flipX,b=this.flipY,c=this.bones,d=0,e=c.length;e>d;d++)c[d].updateWorldTransform(a,b)},setToSetupPose:function(){this.setBonesToSetupPose(),this.setSlotsToSetupPose()},setBonesToSetupPose:function(){for(var a=this.bones,b=0,c=a.length;c>b;b++)a[b].setToSetupPose()},setSlotsToSetupPose:function(){for(var a=this.slots,b=0,c=a.length;c>b;b++)a[b].setToSetupPose(b)},getRootBone:function(){return this.bones.length?this.bones[0]:null},findBone:function(a){for(var b=this.bones,c=0,d=b.length;d>c;c++)if(b[c].data.name==a)return b[c];return null},findBoneIndex:function(a){for(var b=this.bones,c=0,d=b.length;d>c;c++)if(b[c].data.name==a)return c;return-1},findSlot:function(a){for(var b=this.slots,c=0,d=b.length;d>c;c++)if(b[c].data.name==a)return b[c];return null},findSlotIndex:function(a){for(var b=this.slots,c=0,d=b.length;d>c;c++)if(b[c].data.name==a)return c;return-1},setSkinByName:function(a){var b=this.data.findSkin(a);if(!b)throw"Skin not found: "+a;this.setSkin(b)},setSkin:function(a){this.skin&&a&&a._attachAll(this,this.skin),this.skin=a},getAttachmentBySlotName:function(a,b){return this.getAttachmentBySlotIndex(this.data.findSlotIndex(a),b)},getAttachmentBySlotIndex:function(a,b){if(this.skin){var c=this.skin.getAttachment(a,b);if(c)return c}return this.data.defaultSkin?this.data.defaultSkin.getAttachment(a,b):null},setAttachment:function(a,b){for(var c=this.slots,d=0,e=c.size;e>d;d++){var f=c[d];if(f.data.name==a){var g=null;if(b&&(g=this.getAttachment(d,b),null==g))throw"Attachment not found: "+b+", for slot: "+a;return f.setAttachment(g),void 0}}throw"Slot not found: "+a},update:function(a){time+=a}},f.AttachmentType={region:0},f.RegionAttachment=function(){this.offset=[],this.offset.length=8,this.uvs=[],this.uvs.length=8},f.RegionAttachment.prototype={x:0,y:0,rotation:0,scaleX:1,scaleY:1,width:0,height:0,rendererObject:null,regionOffsetX:0,regionOffsetY:0,regionWidth:0,regionHeight:0,regionOriginalWidth:0,regionOriginalHeight:0,setUVs:function(a,b,c,d,e){var f=this.uvs;e?(f[2]=a,f[3]=d,f[4]=a,f[5]=b,f[6]=c,f[7]=b,f[0]=c,f[1]=d):(f[0]=a,f[1]=d,f[2]=a,f[3]=b,f[4]=c,f[5]=b,f[6]=c,f[7]=d)},updateOffset:function(){var a=this.width/this.regionOriginalWidth*this.scaleX,b=this.height/this.regionOriginalHeight*this.scaleY,c=-this.width/2*this.scaleX+this.regionOffsetX*a,d=-this.height/2*this.scaleY+this.regionOffsetY*b,e=c+this.regionWidth*a,f=d+this.regionHeight*b,g=this.rotation*Math.PI/180,h=Math.cos(g),i=Math.sin(g),j=c*h+this.x,k=c*i,l=d*h+this.y,m=d*i,n=e*h+this.x,o=e*i,p=f*h+this.y,q=f*i,r=this.offset;r[0]=j-m,r[1]=l+k,r[2]=j-q,r[3]=p+k,r[4]=n-q,r[5]=p+o,r[6]=n-m,r[7]=l+o},computeVertices:function(a,b,c,d){a+=c.worldX,b+=c.worldY;var e=c.m00,f=c.m01,g=c.m10,h=c.m11,i=this.offset;d[0]=i[0]*e+i[1]*f+a,d[1]=i[0]*g+i[1]*h+b,d[2]=i[2]*e+i[3]*f+a,d[3]=i[2]*g+i[3]*h+b,d[4]=i[4]*e+i[5]*f+a,d[5]=i[4]*g+i[5]*h+b,d[6]=i[6]*e+i[7]*f+a,d[7]=i[6]*g+i[7]*h+b}},f.AnimationStateData=function(a){this.skeletonData=a,this.animationToMixTime={}},f.AnimationStateData.prototype={defaultMix:0,setMixByName:function(a,b,c){var d=this.skeletonData.findAnimation(a);if(!d)throw"Animation not found: "+a;var e=this.skeletonData.findAnimation(b);if(!e)throw"Animation not found: "+b;this.setMix(d,e,c)},setMix:function(a,b,c){this.animationToMixTime[a.name+":"+b.name]=c},getMix:function(a,b){var c=this.animationToMixTime[a.name+":"+b.name];return c?c:this.defaultMix}},f.AnimationState=function(a){this.data=a,this.queue=[]},f.AnimationState.prototype={animationSpeed:1,current:null,previous:null,currentTime:0,previousTime:0,currentLoop:!1,previousLoop:!1,mixTime:0,mixDuration:0,update:function(a){if(this.currentTime+=a*this.animationSpeed,this.previousTime+=a,this.mixTime+=a,this.queue.length>0){var b=this.queue[0];this.currentTime>=b.delay&&(this._setAnimation(b.animation,b.loop),this.queue.shift())}},apply:function(a){if(this.current)if(this.previous){this.previous.apply(a,this.previousTime,this.previousLoop);var b=this.mixTime/this.mixDuration;b>=1&&(b=1,this.previous=null),this.current.mix(a,this.currentTime,this.currentLoop,b)}else this.current.apply(a,this.currentTime,this.currentLoop)},clearAnimation:function(){this.previous=null,this.current=null,this.queue.length=0},_setAnimation:function(a,b){this.previous=null,a&&this.current&&(this.mixDuration=this.data.getMix(this.current,a),this.mixDuration>0&&(this.mixTime=0,this.previous=this.current,this.previousTime=this.currentTime,this.previousLoop=this.currentLoop)),this.current=a,this.currentLoop=b,this.currentTime=0},setAnimationByName:function(a,b){var c=this.data.skeletonData.findAnimation(a);if(!c)throw"Animation not found: "+a;this.setAnimation(c,b)},setAnimation:function(a,b){this.queue.length=0,this._setAnimation(a,b)},addAnimationByName:function(a,b,c){var d=this.data.skeletonData.findAnimation(a);if(!d)throw"Animation not found: "+a;this.addAnimation(d,b,c)},addAnimation:function(a,b,c){var d={};if(d.animation=a,d.loop=b,!c||0>=c){var e=this.queue.length?this.queue[this.queue.length-1].animation:this.current;c=null!=e?e.duration-this.data.getMix(e,a)+(c||0):0}d.delay=c,this.queue.push(d)},isComplete:function(){return!this.current||this.currentTime>=this.current.duration}},f.SkeletonJson=function(a){this.attachmentLoader=a},f.SkeletonJson.prototype={scale:1,readSkeletonData:function(a){for(var b,c=new f.SkeletonData,d=a.bones,e=0,g=d.length;g>e;e++){var h=d[e],i=null;if(h.parent&&(i=c.findBone(h.parent),!i))throw"Parent bone not found: "+h.parent;b=new f.BoneData(h.name,i),b.length=(h.length||0)*this.scale,b.x=(h.x||0)*this.scale,b.y=(h.y||0)*this.scale,b.rotation=h.rotation||0,b.scaleX=h.scaleX||1,b.scaleY=h.scaleY||1,c.bones.push(b)}var j=a.slots;for(e=0,g=j.length;g>e;e++){var k=j[e];if(b=c.findBone(k.bone),!b)throw"Slot bone not found: "+k.bone;var l=new f.SlotData(k.name,b),m=k.color;m&&(l.r=f.SkeletonJson.toColor(m,0),l.g=f.SkeletonJson.toColor(m,1),l.b=f.SkeletonJson.toColor(m,2),l.a=f.SkeletonJson.toColor(m,3)),l.attachmentName=k.attachment,c.slots.push(l)}var n=a.skins;for(var o in n)if(n.hasOwnProperty(o)){var p=n[o],q=new f.Skin(o);for(var r in p)if(p.hasOwnProperty(r)){var s=c.findSlotIndex(r),t=p[r];for(var u in t)if(t.hasOwnProperty(u)){var v=this.readAttachment(q,u,t[u]);null!=v&&q.addAttachment(s,u,v)}}c.skins.push(q),"default"==q.name&&(c.defaultSkin=q)}var w=a.animations;for(var x in w)w.hasOwnProperty(x)&&this.readAnimation(x,w[x],c);return c},readAttachment:function(a,b,c){b=c.name||b;var d=f.AttachmentType[c.type||"region"];if(d==f.AttachmentType.region){var e=new f.RegionAttachment;return e.x=(c.x||0)*this.scale,e.y=(c.y||0)*this.scale,e.scaleX=c.scaleX||1,e.scaleY=c.scaleY||1,e.rotation=c.rotation||0,e.width=(c.width||32)*this.scale,e.height=(c.height||32)*this.scale,e.updateOffset(),e.rendererObject={},e.rendererObject.name=b,e.rendererObject.scale={},e.rendererObject.scale.x=e.scaleX,e.rendererObject.scale.y=e.scaleY,e.rendererObject.rotation=-e.rotation*Math.PI/180,e}throw"Unknown attachment type: "+d},readAnimation:function(a,b,c){var d,e,g,h,i,j,k,l=[],m=0,n=b.bones;for(var o in n)if(n.hasOwnProperty(o)){var p=c.findBoneIndex(o);if(-1==p)throw"Bone not found: "+o;var q=n[o];for(g in q)if(q.hasOwnProperty(g))if(i=q[g],"rotate"==g){for(e=new f.RotateTimeline(i.length),e.boneIndex=p,d=0,j=0,k=i.length;k>j;j++)h=i[j],e.setFrame(d,h.time,h.angle),f.SkeletonJson.readCurve(e,d,h),d++;l.push(e),m=Math.max(m,e.frames[2*e.getFrameCount()-2])}else{if("translate"!=g&&"scale"!=g)throw"Invalid timeline type for a bone: "+g+" ("+o+")";var r=1;for("scale"==g?e=new f.ScaleTimeline(i.length):(e=new f.TranslateTimeline(i.length),r=this.scale),e.boneIndex=p,d=0,j=0,k=i.length;k>j;j++){h=i[j];var s=(h.x||0)*r,t=(h.y||0)*r;e.setFrame(d,h.time,s,t),f.SkeletonJson.readCurve(e,d,h),d++}l.push(e),m=Math.max(m,e.frames[3*e.getFrameCount()-3])}}var u=b.slots;for(var v in u)if(u.hasOwnProperty(v)){var w=u[v],x=c.findSlotIndex(v);for(g in w)if(w.hasOwnProperty(g))if(i=w[g],"color"==g){for(e=new f.ColorTimeline(i.length),e.slotIndex=x,d=0,j=0,k=i.length;k>j;j++){h=i[j];var y=h.color,z=f.SkeletonJson.toColor(y,0),A=f.SkeletonJson.toColor(y,1),B=f.SkeletonJson.toColor(y,2),C=f.SkeletonJson.toColor(y,3);e.setFrame(d,h.time,z,A,B,C),f.SkeletonJson.readCurve(e,d,h),d++}l.push(e),m=Math.max(m,e.frames[5*e.getFrameCount()-5])}else{if("attachment"!=g)throw"Invalid timeline type for a slot: "+g+" ("+v+")";for(e=new f.AttachmentTimeline(i.length),e.slotIndex=x,d=0,j=0,k=i.length;k>j;j++)h=i[j],e.setFrame(d++,h.time,h.name);l.push(e),m=Math.max(m,e.frames[e.getFrameCount()-1])}}c.animations.push(new f.Animation(a,l,m))}},f.SkeletonJson.readCurve=function(a,b,c){var d=c.curve;d&&("stepped"==d?a.curves.setStepped(b):d instanceof Array&&a.curves.setCurve(b,d[0],d[1],d[2],d[3]))},f.SkeletonJson.toColor=function(a,b){if(8!=a.length)throw"Color hexidecimal length must be 8, recieved: "+a;return parseInt(a.substr(2*b,2),16)/255},f.Atlas=function(a,b){this.textureLoader=b,this.pages=[],this.regions=[];var c=new f.AtlasReader(a),d=[];d.length=4;for(var e=null;;){var g=c.readLine();if(null==g)break;if(g=c.trim(g),g.length)if(e){var h=new f.AtlasRegion;h.name=g,h.page=e,h.rotate="true"==c.readValue(),c.readTuple(d);var i=parseInt(d[0],10),j=parseInt(d[1],10);c.readTuple(d);var k=parseInt(d[0],10),l=parseInt(d[1],10);h.u=i/e.width,h.v=j/e.height,h.rotate?(h.u2=(i+l)/e.width,h.v2=(j+k)/e.height):(h.u2=(i+k)/e.width,h.v2=(j+l)/e.height),h.x=i,h.y=j,h.width=Math.abs(k),h.height=Math.abs(l),4==c.readTuple(d)&&(h.splits=[parseInt(d[0],10),parseInt(d[1],10),parseInt(d[2],10),parseInt(d[3],10)],4==c.readTuple(d)&&(h.pads=[parseInt(d[0],10),parseInt(d[1],10),parseInt(d[2],10),parseInt(d[3],10)],c.readTuple(d))),h.originalWidth=parseInt(d[0],10),h.originalHeight=parseInt(d[1],10),c.readTuple(d),h.offsetX=parseInt(d[0],10),h.offsetY=parseInt(d[1],10),h.index=parseInt(c.readValue(),10),this.regions.push(h)}else{e=new f.AtlasPage,e.name=g,e.format=f.Atlas.Format[c.readValue()],c.readTuple(d),e.minFilter=f.Atlas.TextureFilter[d[0]],e.magFilter=f.Atlas.TextureFilter[d[1]];var m=c.readValue();e.uWrap=f.Atlas.TextureWrap.clampToEdge,e.vWrap=f.Atlas.TextureWrap.clampToEdge,"x"==m?e.uWrap=f.Atlas.TextureWrap.repeat:"y"==m?e.vWrap=f.Atlas.TextureWrap.repeat:"xy"==m&&(e.uWrap=e.vWrap=f.Atlas.TextureWrap.repeat),b.load(e,g),this.pages.push(e)}else e=null}},f.Atlas.prototype={findRegion:function(a){for(var b=this.regions,c=0,d=b.length;d>c;c++)if(b[c].name==a)return b[c];return null},dispose:function(){for(var a=this.pages,b=0,c=a.length;c>b;b++)this.textureLoader.unload(a[b].rendererObject)},updateUVs:function(a){for(var b=this.regions,c=0,d=b.length;d>c;c++){var e=b[c];e.page==a&&(e.u=e.x/a.width,e.v=e.y/a.height,e.rotate?(e.u2=(e.x+e.height)/a.width,e.v2=(e.y+e.width)/a.height):(e.u2=(e.x+e.width)/a.width,e.v2=(e.y+e.height)/a.height))}}},f.Atlas.Format={alpha:0,intensity:1,luminanceAlpha:2,rgb565:3,rgba4444:4,rgb888:5,rgba8888:6},f.Atlas.TextureFilter={nearest:0,linear:1,mipMap:2,mipMapNearestNearest:3,mipMapLinearNearest:4,mipMapNearestLinear:5,mipMapLinearLinear:6},f.Atlas.TextureWrap={mirroredRepeat:0,clampToEdge:1,repeat:2},f.AtlasPage=function(){},f.AtlasPage.prototype={name:null,format:null,minFilter:null,magFilter:null,uWrap:null,vWrap:null,rendererObject:null,width:0,height:0},f.AtlasRegion=function(){},f.AtlasRegion.prototype={page:null,name:null,x:0,y:0,width:0,height:0,u:0,v:0,u2:0,v2:0,offsetX:0,offsetY:0,originalWidth:0,originalHeight:0,index:0,rotate:!1,splits:null,pads:null},f.AtlasReader=function(a){this.lines=a.split(/\r\n|\r|\n/)},f.AtlasReader.prototype={index:0,trim:function(a){return a.replace(/^\s+|\s+$/g,"")},readLine:function(){return this.index>=this.lines.length?null:this.lines[this.index++]},readValue:function(){var a=this.readLine(),b=a.indexOf(":");if(-1==b)throw"Invalid line: "+a;return this.trim(a.substring(b+1))},readTuple:function(a){var b=this.readLine(),c=b.indexOf(":");if(-1==c)throw"Invalid line: "+b;for(var d=0,e=c+1;3>d;d++){var f=b.indexOf(",",e);if(-1==f){if(!d)throw"Invalid line: "+b;break}a[d]=this.trim(b.substr(e,f-e)),e=f+1}return a[d]=this.trim(b.substring(e)),d+1}},f.AtlasAttachmentLoader=function(a){this.atlas=a},f.AtlasAttachmentLoader.prototype={newAttachment:function(a,b,c){switch(b){case f.AttachmentType.region:var d=this.atlas.findRegion(c);if(!d)throw"Region not found in atlas: "+c+" ("+b+")";var e=new f.RegionAttachment(c);return e.rendererObject=d,e.setUVs(d.u,d.v,d.u2,d.v2,d.rotate),e.regionOffsetX=d.offsetX,e.regionOffsetY=d.offsetY,e.regionWidth=d.width,e.regionHeight=d.height,e.regionOriginalWidth=d.originalWidth,e.regionOriginalHeight=d.originalHeight,e}throw"Unknown attachment type: "+b}},f.Bone.yDown=!0,b.AnimCache={},b.Spine=function(a){if(b.DisplayObjectContainer.call(this),this.spineData=b.AnimCache[a],!this.spineData)throw new Error("Spine data must be preloaded using PIXI.SpineLoader or PIXI.AssetLoader: "+a);this.skeleton=new f.Skeleton(this.spineData),this.skeleton.updateWorldTransform(),this.stateData=new f.AnimationStateData(this.spineData),this.state=new f.AnimationState(this.stateData),this.slotContainers=[];for(var c=0,d=this.skeleton.drawOrder.length;d>c;c++){var e=this.skeleton.drawOrder[c],g=e.attachment,h=new b.DisplayObjectContainer;if(this.slotContainers.push(h),this.addChild(h),g instanceof f.RegionAttachment){var i=g.rendererObject.name,j=this.createSprite(e,g.rendererObject);e.currentSprite=j,e.currentSpriteName=i,h.addChild(j)}}},b.Spine.prototype=Object.create(b.DisplayObjectContainer.prototype),b.Spine.prototype.constructor=b.Spine,b.Spine.prototype.updateTransform=function(){this.lastTime=this.lastTime||Date.now();var a=.001*(Date.now()-this.lastTime);this.lastTime=Date.now(),this.state.update(a),this.state.apply(this.skeleton),this.skeleton.updateWorldTransform();for(var c=this.skeleton.drawOrder,d=0,e=c.length;e>d;d++){var g=c[d],h=g.attachment,i=this.slotContainers[d];if(h instanceof f.RegionAttachment){if(h.rendererObject&&(!g.currentSpriteName||g.currentSpriteName!=h.name)){var j=h.rendererObject.name;if(void 0!==g.currentSprite&&(g.currentSprite.visible=!1),g.sprites=g.sprites||{},void 0!==g.sprites[j])g.sprites[j].visible=!0;else{var k=this.createSprite(g,h.rendererObject);i.addChild(k)}g.currentSprite=g.sprites[j],g.currentSpriteName=j}i.visible=!0;var l=g.bone;i.position.x=l.worldX+h.x*l.m00+h.y*l.m01,i.position.y=l.worldY+h.x*l.m10+h.y*l.m11,i.scale.x=l.worldScaleX,i.scale.y=l.worldScaleY,i.rotation=-(g.bone.worldRotation*Math.PI/180),i.alpha=g.a,g.currentSprite.tint=b.rgb2hex([g.r,g.g,g.b])}else i.visible=!1}b.DisplayObjectContainer.prototype.updateTransform.call(this)},b.Spine.prototype.createSprite=function(a,c){var d=b.TextureCache[c.name]?c.name:c.name+".png",e=new b.Sprite(b.Texture.fromFrame(d));return e.scale=c.scale,e.rotation=c.rotation,e.anchor.x=e.anchor.y=.5,a.sprites=a.sprites||{},a.sprites[c.name]=e,e},b.BaseTextureCache={},b.texturesToUpdate=[],b.texturesToDestroy=[],b.BaseTextureCacheIdGenerator=0,b.BaseTexture=function(a,c){if(b.EventTarget.call(this),this.width=100,this.height=100,this.scaleMode=c||b.scaleModes.DEFAULT,this.hasLoaded=!1,this.source=a,this.id=b.BaseTextureCacheIdGenerator++,this.premultipliedAlpha=!0,this._glTextures=[],this._dirty=[],a){if((this.source.complete||this.source.getContext)&&this.source.width&&this.source.height)this.hasLoaded=!0,this.width=this.source.width,this.height=this.source.height,b.texturesToUpdate.push(this);else{var d=this;this.source.onload=function(){d.hasLoaded=!0,d.width=d.source.width,d.height=d.source.height;for(var a=0;a<d._glTextures.length;a++)d._dirty[a]=!0;d.dispatchEvent({type:"loaded",content:d})},this.source.onerror=function(){d.dispatchEvent({type:"error",content:d})}}this.imageUrl=null,this._powerOf2=!1}},b.BaseTexture.prototype.constructor=b.BaseTexture,b.BaseTexture.prototype.destroy=function(){this.imageUrl?(delete b.BaseTextureCache[this.imageUrl],delete b.TextureCache[this.imageUrl],this.imageUrl=null,this.source.src=null):this.source&&this.source._pixiId&&delete b.BaseTextureCache[this.source._pixiId],this.source=null,b.texturesToDestroy.push(this)},b.BaseTexture.prototype.updateSourceImage=function(a){this.hasLoaded=!1,this.source.src=null,this.source.src=a},b.BaseTexture.fromImage=function(a,c,d){var e=b.BaseTextureCache[a];if(void 0===c&&-1===a.indexOf("data:")&&(c=!0),!e){var f=new Image;c&&(f.crossOrigin=""),f.src=a,e=new b.BaseTexture(f,d),e.imageUrl=a,b.BaseTextureCache[a]=e}return e},b.BaseTexture.fromCanvas=function(a,c){a._pixiId||(a._pixiId="canvas_"+b.TextureCacheIdGenerator++);var d=b.BaseTextureCache[a._pixiId];return d||(d=new b.BaseTexture(a,c),b.BaseTextureCache[a._pixiId]=d),d},b.TextureCache={},b.FrameCache={},b.TextureCacheIdGenerator=0,b.Texture=function(a,c){if(b.EventTarget.call(this),this.noFrame=!1,c||(this.noFrame=!0,c=new b.Rectangle(0,0,1,1)),a instanceof b.Texture&&(a=a.baseTexture),this.baseTexture=a,this.frame=c,this.trim=null,this.valid=!1,this.scope=this,this._uvs=null,this.width=0,this.height=0,this.crop=new b.Rectangle(0,0,1,1),a.hasLoaded)this.noFrame&&(c=new b.Rectangle(0,0,a.width,a.height)),this.setFrame(c);else{var d=this;a.addEventListener("loaded",function(){d.onBaseTextureLoaded()})}},b.Texture.prototype.constructor=b.Texture,b.Texture.prototype.onBaseTextureLoaded=function(){var a=this.baseTexture;a.removeEventListener("loaded",this.onLoaded),this.noFrame&&(this.frame=new b.Rectangle(0,0,a.width,a.height)),this.setFrame(this.frame),this.scope.dispatchEvent({type:"update",content:this})},b.Texture.prototype.destroy=function(a){a&&this.baseTexture.destroy(),this.valid=!1},b.Texture.prototype.setFrame=function(a){if(this.noFrame=!1,this.frame=a,this.width=a.width,this.height=a.height,this.crop.x=a.x,this.crop.y=a.y,this.crop.width=a.width,this.crop.height=a.height,!this.trim&&(a.x+a.width>this.baseTexture.width||a.y+a.height>this.baseTexture.height))throw new Error("Texture Error: frame does not fit inside the base Texture dimensions "+this);this.valid=a&&a.width&&a.height&&this.baseTexture.source&&this.baseTexture.hasLoaded,this.trim&&(this.width=this.trim.width,this.height=this.trim.height,this.frame.width=this.trim.width,this.frame.height=this.trim.height),this.valid&&b.Texture.frameUpdates.push(this)},b.Texture.prototype._updateWebGLuvs=function(){this._uvs||(this._uvs=new b.TextureUvs);var a=this.crop,c=this.baseTexture.width,d=this.baseTexture.height;this._uvs.x0=a.x/c,this._uvs.y0=a.y/d,this._uvs.x1=(a.x+a.width)/c,this._uvs.y1=a.y/d,this._uvs.x2=(a.x+a.width)/c,this._uvs.y2=(a.y+a.height)/d,this._uvs.x3=a.x/c,this._uvs.y3=(a.y+a.height)/d},b.Texture.fromImage=function(a,c,d){var e=b.TextureCache[a];return e||(e=new b.Texture(b.BaseTexture.fromImage(a,c,d)),b.TextureCache[a]=e),e},b.Texture.fromFrame=function(a){var c=b.TextureCache[a];if(!c)throw new Error('The frameId "'+a+'" does not exist in the texture cache ');return c},b.Texture.fromCanvas=function(a,c){var d=b.BaseTexture.fromCanvas(a,c);return new b.Texture(d)},b.Texture.addTextureToCache=function(a,c){b.TextureCache[c]=a},b.Texture.removeTextureFromCache=function(a){var c=b.TextureCache[a];return delete b.TextureCache[a],delete b.BaseTextureCache[a],c},b.Texture.frameUpdates=[],b.TextureUvs=function(){this.x0=0,this.y0=0,this.x1=0,this.y1=0,this.x2=0,this.y2=0,this.x3=0,this.y3=0},b.RenderTexture=function(a,c,d,e){if(b.EventTarget.call(this),this.width=a||100,this.height=c||100,this.frame=new b.Rectangle(0,0,this.width,this.height),this.crop=new b.Rectangle(0,0,this.width,this.height),this.baseTexture=new b.BaseTexture,this.baseTexture.width=this.width,this.baseTexture.height=this.height,this.baseTexture._glTextures=[],this.baseTexture.scaleMode=e||b.scaleModes.DEFAULT,this.baseTexture.hasLoaded=!0,this.renderer=d||b.defaultRenderer,this.renderer.type===b.WEBGL_RENDERER){var f=this.renderer.gl;this.textureBuffer=new b.FilterTexture(f,this.width,this.height,this.baseTexture.scaleMode),this.baseTexture._glTextures[f.id]=this.textureBuffer.texture,this.render=this.renderWebGL,this.projection=new b.Point(this.width/2,-this.height/2)}else this.render=this.renderCanvas,this.textureBuffer=new b.CanvasBuffer(this.width,this.height),this.baseTexture.source=this.textureBuffer.canvas;this.valid=!0,b.Texture.frameUpdates.push(this)},b.RenderTexture.prototype=Object.create(b.Texture.prototype),b.RenderTexture.prototype.constructor=b.RenderTexture,b.RenderTexture.prototype.resize=function(a,c,d){(a!==this.width||c!==this.height)&&(this.width=this.frame.width=this.crop.width=a,this.height=this.frame.height=this.crop.height=c,d&&(this.baseTexture.width=this.width,this.baseTexture.height=this.height),this.renderer.type===b.WEBGL_RENDERER&&(this.projection.x=this.width/2,this.projection.y=-this.height/2),this.textureBuffer.resize(this.width,this.height))},b.RenderTexture.prototype.clear=function(){this.renderer.type===b.WEBGL_RENDERER&&this.renderer.gl.bindFramebuffer(this.renderer.gl.FRAMEBUFFER,this.textureBuffer.frameBuffer),this.textureBuffer.clear()},b.RenderTexture.prototype.renderWebGL=function(a,c,d){var e=this.renderer.gl;e.colorMask(!0,!0,!0,!0),e.viewport(0,0,this.width,this.height),e.bindFramebuffer(e.FRAMEBUFFER,this.textureBuffer.frameBuffer),d&&this.textureBuffer.clear();var f=a.children,g=a.worldTransform;a.worldTransform=b.RenderTexture.tempMatrix,a.worldTransform.d=-1,a.worldTransform.ty=-2*this.projection.y,c&&(a.worldTransform.tx=c.x,a.worldTransform.ty-=c.y);for(var h=0,i=f.length;i>h;h++)f[h].updateTransform();b.WebGLRenderer.updateTextures(),this.renderer.spriteBatch.dirty=!0,this.renderer.renderDisplayObject(a,this.projection,this.textureBuffer.frameBuffer),a.worldTransform=g,this.renderer.spriteBatch.dirty=!0},b.RenderTexture.prototype.renderCanvas=function(a,c,d){var e=a.children,f=a.worldTransform;a.worldTransform=b.RenderTexture.tempMatrix,c?(a.worldTransform.tx=c.x,a.worldTransform.ty=c.y):(a.worldTransform.tx=0,a.worldTransform.ty=0);for(var g=0,h=e.length;h>g;g++)e[g].updateTransform();d&&this.textureBuffer.clear();var i=this.textureBuffer.context;this.renderer.renderDisplayObject(a,i),i.setTransform(1,0,0,1,0,0),a.worldTransform=f},b.RenderTexture.tempMatrix=new b.Matrix,b.AssetLoader=function(a,c){b.EventTarget.call(this),this.assetURLs=a,this.crossorigin=c,this.loadersByType={jpg:b.ImageLoader,jpeg:b.ImageLoader,png:b.ImageLoader,gif:b.ImageLoader,webp:b.ImageLoader,json:b.JsonLoader,atlas:b.AtlasLoader,anim:b.SpineLoader,xml:b.BitmapFontLoader,fnt:b.BitmapFontLoader}},b.AssetLoader.prototype.constructor=b.AssetLoader,b.AssetLoader.prototype._getDataType=function(a){var b="data:",c=a.slice(0,b.length).toLowerCase();if(c===b){var d=a.slice(b.length),e=d.indexOf(",");if(-1===e)return null;var f=d.slice(0,e).split(";")[0];return f&&"text/plain"!==f.toLowerCase()?f.split("/").pop().toLowerCase():"txt"}return null},b.AssetLoader.prototype.load=function(){function a(a){b.onAssetLoaded(a.content)}var b=this;this.loadCount=this.assetURLs.length;for(var c=0;c<this.assetURLs.length;c++){var d=this.assetURLs[c],e=this._getDataType(d);e||(e=d.split("?").shift().split(".").pop().toLowerCase());var f=this.loadersByType[e];if(!f)throw new Error(e+" is an unsupported file type");var g=new f(d,this.crossorigin);g.addEventListener("loaded",a),g.load()}},b.AssetLoader.prototype.onAssetLoaded=function(a){this.loadCount--,this.dispatchEvent({type:"onProgress",content:this,loader:a}),this.onProgress&&this.onProgress(a),this.loadCount||(this.dispatchEvent({type:"onComplete",content:this}),this.onComplete&&this.onComplete())},b.JsonLoader=function(a,c){b.EventTarget.call(this),this.url=a,this.crossorigin=c,this.baseUrl=a.replace(/[^\/]*$/,""),this.loaded=!1},b.JsonLoader.prototype.constructor=b.JsonLoader,b.JsonLoader.prototype.load=function(){var a=this;window.XDomainRequest&&a.crossorigin?(this.ajaxRequest=new window.XDomainRequest,this.ajaxRequest.timeout=3e3,this.ajaxRequest.onerror=function(){a.onError()},this.ajaxRequest.ontimeout=function(){a.onError()},this.ajaxRequest.onprogress=function(){}):this.ajaxRequest=window.XMLHttpRequest?new window.XMLHttpRequest:new window.ActiveXObject("Microsoft.XMLHTTP"),this.ajaxRequest.onload=function(){a.onJSONLoaded()},this.ajaxRequest.open("GET",this.url,!0),this.ajaxRequest.send()},b.JsonLoader.prototype.onJSONLoaded=function(){if(!this.ajaxRequest.responseText)return this.onError(),void 0;if(this.json=JSON.parse(this.ajaxRequest.responseText),this.json.frames){var a=this,c=this.baseUrl+this.json.meta.image,d=new b.ImageLoader(c,this.crossorigin),e=this.json.frames;this.texture=d.texture.baseTexture,d.addEventListener("loaded",function(){a.onLoaded()});for(var g in e){var h=e[g].frame;if(h&&(b.TextureCache[g]=new b.Texture(this.texture,{x:h.x,y:h.y,width:h.w,height:h.h}),b.TextureCache[g].crop=new b.Rectangle(h.x,h.y,h.w,h.h),e[g].trimmed)){var i=e[g].sourceSize,j=e[g].spriteSourceSize;b.TextureCache[g].trim=new b.Rectangle(j.x,j.y,i.w,i.h)}}d.load()}else if(this.json.bones){var k=new f.SkeletonJson,l=k.readSkeletonData(this.json);b.AnimCache[this.url]=l,this.onLoaded()}else this.onLoaded()},b.JsonLoader.prototype.onLoaded=function(){this.loaded=!0,this.dispatchEvent({type:"loaded",content:this})},b.JsonLoader.prototype.onError=function(){this.dispatchEvent({type:"error",content:this})},b.AtlasLoader=function(a,c){b.EventTarget.call(this),this.url=a,this.baseUrl=a.replace(/[^\/]*$/,""),this.crossorigin=c,this.loaded=!1},b.AtlasLoader.constructor=b.AtlasLoader,b.AtlasLoader.prototype.load=function(){this.ajaxRequest=new b.AjaxRequest,this.ajaxRequest.onreadystatechange=this.onAtlasLoaded.bind(this),this.ajaxRequest.open("GET",this.url,!0),this.ajaxRequest.overrideMimeType&&this.ajaxRequest.overrideMimeType("application/json"),this.ajaxRequest.send(null)},b.AtlasLoader.prototype.onAtlasLoaded=function(){if(4===this.ajaxRequest.readyState)if(200===this.ajaxRequest.status||-1===window.location.href.indexOf("http")){this.atlas={meta:{image:[]},frames:[]};var a=this.ajaxRequest.responseText.split(/\r?\n/),c=-3,d=0,e=null,f=!1,g=0,h=0,i=this.onLoaded.bind(this);for(g=0;g<a.length;g++)if(a[g]=a[g].replace(/^\s+|\s+$/g,""),""===a[g]&&(f=g+1),a[g].length>0){if(f===g)this.atlas.meta.image.push(a[g]),d=this.atlas.meta.image.length-1,this.atlas.frames.push({}),c=-3;else if(c>0)if(c%7===1)null!=e&&(this.atlas.frames[d][e.name]=e),e={name:a[g],frame:{}};else{var j=a[g].split(" ");if(c%7===3)e.frame.x=Number(j[1].replace(",","")),e.frame.y=Number(j[2]);else if(c%7===4)e.frame.w=Number(j[1].replace(",","")),e.frame.h=Number(j[2]);else if(c%7===5){var k={x:0,y:0,w:Number(j[1].replace(",","")),h:Number(j[2])};k.w>e.frame.w||k.h>e.frame.h?(e.trimmed=!0,e.realSize=k):e.trimmed=!1}}c++}if(null!=e&&(this.atlas.frames[d][e.name]=e),this.atlas.meta.image.length>0){for(this.images=[],h=0;h<this.atlas.meta.image.length;h++){var l=this.baseUrl+this.atlas.meta.image[h],m=this.atlas.frames[h];this.images.push(new b.ImageLoader(l,this.crossorigin));for(g in m){var n=m[g].frame;n&&(b.TextureCache[g]=new b.Texture(this.images[h].texture.baseTexture,{x:n.x,y:n.y,width:n.w,height:n.h}),m[g].trimmed&&(b.TextureCache[g].realSize=m[g].realSize,b.TextureCache[g].trim.x=0,b.TextureCache[g].trim.y=0))}}for(this.currentImageId=0,h=0;h<this.images.length;h++)this.images[h].addEventListener("loaded",i);this.images[this.currentImageId].load()}else this.onLoaded()}else this.onError()},b.AtlasLoader.prototype.onLoaded=function(){this.images.length-1>this.currentImageId?(this.currentImageId++,this.images[this.currentImageId].load()):(this.loaded=!0,this.dispatchEvent({type:"loaded",content:this}))},b.AtlasLoader.prototype.onError=function(){this.dispatchEvent({type:"error",content:this})},b.SpriteSheetLoader=function(a,c){b.EventTarget.call(this),this.url=a,this.crossorigin=c,this.baseUrl=a.replace(/[^\/]*$/,""),this.texture=null,this.frames={}},b.SpriteSheetLoader.prototype.constructor=b.SpriteSheetLoader,b.SpriteSheetLoader.prototype.load=function(){var a=this,c=new b.JsonLoader(this.url,this.crossorigin);c.addEventListener("loaded",function(b){a.json=b.content.json,a.onLoaded()}),c.load()},b.SpriteSheetLoader.prototype.onLoaded=function(){this.dispatchEvent({type:"loaded",content:this})},b.ImageLoader=function(a,c){b.EventTarget.call(this),this.texture=b.Texture.fromImage(a,c),this.frames=[]},b.ImageLoader.prototype.constructor=b.ImageLoader,b.ImageLoader.prototype.load=function(){if(this.texture.baseTexture.hasLoaded)this.onLoaded();else{var a=this;this.texture.baseTexture.addEventListener("loaded",function(){a.onLoaded()})}},b.ImageLoader.prototype.onLoaded=function(){this.dispatchEvent({type:"loaded",content:this})},b.ImageLoader.prototype.loadFramedSpriteSheet=function(a,c,d){this.frames=[];for(var e=Math.floor(this.texture.width/a),f=Math.floor(this.texture.height/c),g=0,h=0;f>h;h++)for(var i=0;e>i;i++,g++){var j=new b.Texture(this.texture,{x:i*a,y:h*c,width:a,height:c});this.frames.push(j),d&&(b.TextureCache[d+"-"+g]=j)}if(this.texture.baseTexture.hasLoaded)this.onLoaded();else{var k=this;this.texture.baseTexture.addEventListener("loaded",function(){k.onLoaded()})}},b.BitmapFontLoader=function(a,c){b.EventTarget.call(this),this.url=a,this.crossorigin=c,this.baseUrl=a.replace(/[^\/]*$/,""),this.texture=null},b.BitmapFontLoader.prototype.constructor=b.BitmapFontLoader,b.BitmapFontLoader.prototype.load=function(){this.ajaxRequest=new b.AjaxRequest;var a=this;this.ajaxRequest.onreadystatechange=function(){a.onXMLLoaded()},this.ajaxRequest.open("GET",this.url,!0),this.ajaxRequest.overrideMimeType&&this.ajaxRequest.overrideMimeType("application/xml"),this.ajaxRequest.send(null)},b.BitmapFontLoader.prototype.onXMLLoaded=function(){if(4===this.ajaxRequest.readyState&&(200===this.ajaxRequest.status||-1===window.location.protocol.indexOf("http"))){var a=this.ajaxRequest.responseXML;if(!a||/MSIE 9/i.test(navigator.userAgent)||navigator.isCocoonJS)if("function"==typeof window.DOMParser){var c=new DOMParser;a=c.parseFromString(this.ajaxRequest.responseText,"text/xml")}else{var d=document.createElement("div");d.innerHTML=this.ajaxRequest.responseText,a=d}var e=this.baseUrl+a.getElementsByTagName("page")[0].getAttribute("file"),f=new b.ImageLoader(e,this.crossorigin);this.texture=f.texture.baseTexture;var g={},h=a.getElementsByTagName("info")[0],i=a.getElementsByTagName("common")[0];g.font=h.getAttribute("face"),g.size=parseInt(h.getAttribute("size"),10),g.lineHeight=parseInt(i.getAttribute("lineHeight"),10),g.chars={};for(var j=a.getElementsByTagName("char"),k=0;k<j.length;k++){var l=parseInt(j[k].getAttribute("id"),10),m=new b.Rectangle(parseInt(j[k].getAttribute("x"),10),parseInt(j[k].getAttribute("y"),10),parseInt(j[k].getAttribute("width"),10),parseInt(j[k].getAttribute("height"),10));g.chars[l]={xOffset:parseInt(j[k].getAttribute("xoffset"),10),yOffset:parseInt(j[k].getAttribute("yoffset"),10),xAdvance:parseInt(j[k].getAttribute("xadvance"),10),kerning:{},texture:b.TextureCache[l]=new b.Texture(this.texture,m)}}var n=a.getElementsByTagName("kerning");for(k=0;k<n.length;k++){var o=parseInt(n[k].getAttribute("first"),10),p=parseInt(n[k].getAttribute("second"),10),q=parseInt(n[k].getAttribute("amount"),10);g.chars[p].kerning[o]=q}b.BitmapText.fonts[g.font]=g;var r=this;f.addEventListener("loaded",function(){r.onLoaded()}),f.load()}},b.BitmapFontLoader.prototype.onLoaded=function(){this.dispatchEvent({type:"loaded",content:this})},b.SpineLoader=function(a,c){b.EventTarget.call(this),this.url=a,this.crossorigin=c,this.loaded=!1},b.SpineLoader.prototype.constructor=b.SpineLoader,b.SpineLoader.prototype.load=function(){var a=this,c=new b.JsonLoader(this.url,this.crossorigin);
+c.addEventListener("loaded",function(b){a.json=b.content.json,a.onLoaded()}),c.load()},b.SpineLoader.prototype.onLoaded=function(){this.loaded=!0,this.dispatchEvent({type:"loaded",content:this})},b.AbstractFilter=function(a,b){this.passes=[this],this.shaders=[],this.dirty=!0,this.padding=0,this.uniforms=b||{},this.fragmentSrc=a||[]},b.AlphaMaskFilter=function(a){b.AbstractFilter.call(this),this.passes=[this],a.baseTexture._powerOf2=!0,this.uniforms={mask:{type:"sampler2D",value:a},mapDimensions:{type:"2f",value:{x:1,y:5112}},dimensions:{type:"4fv",value:[0,0,0,0]}},a.baseTexture.hasLoaded?(this.uniforms.mask.value.x=a.width,this.uniforms.mask.value.y=a.height):(this.boundLoadedFunction=this.onTextureLoaded.bind(this),a.baseTexture.on("loaded",this.boundLoadedFunction)),this.fragmentSrc=["precision mediump float;","varying vec2 vTextureCoord;","varying vec4 vColor;","uniform sampler2D mask;","uniform sampler2D uSampler;","uniform vec2 offset;","uniform vec4 dimensions;","uniform vec2 mapDimensions;","void main(void) {","   vec2 mapCords = vTextureCoord.xy;","   mapCords += (dimensions.zw + offset)/ dimensions.xy ;","   mapCords.y *= -1.0;","   mapCords.y += 1.0;","   mapCords *= dimensions.xy / mapDimensions;","   vec4 original =  texture2D(uSampler, vTextureCoord);","   float maskAlpha =  texture2D(mask, mapCords).r;","   original *= maskAlpha;","   gl_FragColor =  original;","}"]},b.AlphaMaskFilter.prototype=Object.create(b.AbstractFilter.prototype),b.AlphaMaskFilter.prototype.constructor=b.AlphaMaskFilter,b.AlphaMaskFilter.prototype.onTextureLoaded=function(){this.uniforms.mapDimensions.value.x=this.uniforms.mask.value.width,this.uniforms.mapDimensions.value.y=this.uniforms.mask.value.height,this.uniforms.mask.value.baseTexture.off("loaded",this.boundLoadedFunction)},Object.defineProperty(b.AlphaMaskFilter.prototype,"map",{get:function(){return this.uniforms.mask.value},set:function(a){this.uniforms.mask.value=a}}),b.ColorMatrixFilter=function(){b.AbstractFilter.call(this),this.passes=[this],this.uniforms={matrix:{type:"mat4",value:[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]}},this.fragmentSrc=["precision mediump float;","varying vec2 vTextureCoord;","varying vec4 vColor;","uniform float invert;","uniform mat4 matrix;","uniform sampler2D uSampler;","void main(void) {","   gl_FragColor = texture2D(uSampler, vTextureCoord) * matrix;","}"]},b.ColorMatrixFilter.prototype=Object.create(b.AbstractFilter.prototype),b.ColorMatrixFilter.prototype.constructor=b.ColorMatrixFilter,Object.defineProperty(b.ColorMatrixFilter.prototype,"matrix",{get:function(){return this.uniforms.matrix.value},set:function(a){this.uniforms.matrix.value=a}}),b.GrayFilter=function(){b.AbstractFilter.call(this),this.passes=[this],this.uniforms={gray:{type:"1f",value:1}},this.fragmentSrc=["precision mediump float;","varying vec2 vTextureCoord;","varying vec4 vColor;","uniform sampler2D uSampler;","uniform float gray;","void main(void) {","   gl_FragColor = texture2D(uSampler, vTextureCoord);","   gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.2126*gl_FragColor.r + 0.7152*gl_FragColor.g + 0.0722*gl_FragColor.b), gray);","}"]},b.GrayFilter.prototype=Object.create(b.AbstractFilter.prototype),b.GrayFilter.prototype.constructor=b.GrayFilter,Object.defineProperty(b.GrayFilter.prototype,"gray",{get:function(){return this.uniforms.gray.value},set:function(a){this.uniforms.gray.value=a}}),b.DisplacementFilter=function(a){b.AbstractFilter.call(this),this.passes=[this],a.baseTexture._powerOf2=!0,this.uniforms={displacementMap:{type:"sampler2D",value:a},scale:{type:"2f",value:{x:30,y:30}},offset:{type:"2f",value:{x:0,y:0}},mapDimensions:{type:"2f",value:{x:1,y:5112}},dimensions:{type:"4fv",value:[0,0,0,0]}},a.baseTexture.hasLoaded?(this.uniforms.mapDimensions.value.x=a.width,this.uniforms.mapDimensions.value.y=a.height):(this.boundLoadedFunction=this.onTextureLoaded.bind(this),a.baseTexture.on("loaded",this.boundLoadedFunction)),this.fragmentSrc=["precision mediump float;","varying vec2 vTextureCoord;","varying vec4 vColor;","uniform sampler2D displacementMap;","uniform sampler2D uSampler;","uniform vec2 scale;","uniform vec2 offset;","uniform vec4 dimensions;","uniform vec2 mapDimensions;","void main(void) {","   vec2 mapCords = vTextureCoord.xy;","   mapCords += (dimensions.zw + offset)/ dimensions.xy ;","   mapCords.y *= -1.0;","   mapCords.y += 1.0;","   vec2 matSample = texture2D(displacementMap, mapCords).xy;","   matSample -= 0.5;","   matSample *= scale;","   matSample /= mapDimensions;","   gl_FragColor = texture2D(uSampler, vec2(vTextureCoord.x + matSample.x, vTextureCoord.y + matSample.y));","   gl_FragColor.rgb = mix( gl_FragColor.rgb, gl_FragColor.rgb, 1.0);","   vec2 cord = vTextureCoord;","}"]},b.DisplacementFilter.prototype=Object.create(b.AbstractFilter.prototype),b.DisplacementFilter.prototype.constructor=b.DisplacementFilter,b.DisplacementFilter.prototype.onTextureLoaded=function(){this.uniforms.mapDimensions.value.x=this.uniforms.displacementMap.value.width,this.uniforms.mapDimensions.value.y=this.uniforms.displacementMap.value.height,this.uniforms.displacementMap.value.baseTexture.off("loaded",this.boundLoadedFunction)},Object.defineProperty(b.DisplacementFilter.prototype,"map",{get:function(){return this.uniforms.displacementMap.value},set:function(a){this.uniforms.displacementMap.value=a}}),Object.defineProperty(b.DisplacementFilter.prototype,"scale",{get:function(){return this.uniforms.scale.value},set:function(a){this.uniforms.scale.value=a}}),Object.defineProperty(b.DisplacementFilter.prototype,"offset",{get:function(){return this.uniforms.offset.value},set:function(a){this.uniforms.offset.value=a}}),b.PixelateFilter=function(){b.AbstractFilter.call(this),this.passes=[this],this.uniforms={invert:{type:"1f",value:0},dimensions:{type:"4fv",value:new Float32Array([1e4,100,10,10])},pixelSize:{type:"2f",value:{x:10,y:10}}},this.fragmentSrc=["precision mediump float;","varying vec2 vTextureCoord;","varying vec4 vColor;","uniform vec2 testDim;","uniform vec4 dimensions;","uniform vec2 pixelSize;","uniform sampler2D uSampler;","void main(void) {","   vec2 coord = vTextureCoord;","   vec2 size = dimensions.xy/pixelSize;","   vec2 color = floor( ( vTextureCoord * size ) ) / size + pixelSize/dimensions.xy * 0.5;","   gl_FragColor = texture2D(uSampler, color);","}"]},b.PixelateFilter.prototype=Object.create(b.AbstractFilter.prototype),b.PixelateFilter.prototype.constructor=b.PixelateFilter,Object.defineProperty(b.PixelateFilter.prototype,"size",{get:function(){return this.uniforms.pixelSize.value},set:function(a){this.dirty=!0,this.uniforms.pixelSize.value=a}}),b.BlurXFilter=function(){b.AbstractFilter.call(this),this.passes=[this],this.uniforms={blur:{type:"1f",value:1/512}},this.fragmentSrc=["precision mediump float;","varying vec2 vTextureCoord;","varying vec4 vColor;","uniform float blur;","uniform sampler2D uSampler;","void main(void) {","   vec4 sum = vec4(0.0);","   sum += texture2D(uSampler, vec2(vTextureCoord.x - 4.0*blur, vTextureCoord.y)) * 0.05;","   sum += texture2D(uSampler, vec2(vTextureCoord.x - 3.0*blur, vTextureCoord.y)) * 0.09;","   sum += texture2D(uSampler, vec2(vTextureCoord.x - 2.0*blur, vTextureCoord.y)) * 0.12;","   sum += texture2D(uSampler, vec2(vTextureCoord.x - blur, vTextureCoord.y)) * 0.15;","   sum += texture2D(uSampler, vec2(vTextureCoord.x, vTextureCoord.y)) * 0.16;","   sum += texture2D(uSampler, vec2(vTextureCoord.x + blur, vTextureCoord.y)) * 0.15;","   sum += texture2D(uSampler, vec2(vTextureCoord.x + 2.0*blur, vTextureCoord.y)) * 0.12;","   sum += texture2D(uSampler, vec2(vTextureCoord.x + 3.0*blur, vTextureCoord.y)) * 0.09;","   sum += texture2D(uSampler, vec2(vTextureCoord.x + 4.0*blur, vTextureCoord.y)) * 0.05;","   gl_FragColor = sum;","}"]},b.BlurXFilter.prototype=Object.create(b.AbstractFilter.prototype),b.BlurXFilter.prototype.constructor=b.BlurXFilter,Object.defineProperty(b.BlurXFilter.prototype,"blur",{get:function(){return this.uniforms.blur.value/(1/7e3)},set:function(a){this.dirty=!0,this.uniforms.blur.value=1/7e3*a}}),b.BlurYFilter=function(){b.AbstractFilter.call(this),this.passes=[this],this.uniforms={blur:{type:"1f",value:1/512}},this.fragmentSrc=["precision mediump float;","varying vec2 vTextureCoord;","varying vec4 vColor;","uniform float blur;","uniform sampler2D uSampler;","void main(void) {","   vec4 sum = vec4(0.0);","   sum += texture2D(uSampler, vec2(vTextureCoord.x, vTextureCoord.y - 4.0*blur)) * 0.05;","   sum += texture2D(uSampler, vec2(vTextureCoord.x, vTextureCoord.y - 3.0*blur)) * 0.09;","   sum += texture2D(uSampler, vec2(vTextureCoord.x, vTextureCoord.y - 2.0*blur)) * 0.12;","   sum += texture2D(uSampler, vec2(vTextureCoord.x, vTextureCoord.y - blur)) * 0.15;","   sum += texture2D(uSampler, vec2(vTextureCoord.x, vTextureCoord.y)) * 0.16;","   sum += texture2D(uSampler, vec2(vTextureCoord.x, vTextureCoord.y + blur)) * 0.15;","   sum += texture2D(uSampler, vec2(vTextureCoord.x, vTextureCoord.y + 2.0*blur)) * 0.12;","   sum += texture2D(uSampler, vec2(vTextureCoord.x, vTextureCoord.y + 3.0*blur)) * 0.09;","   sum += texture2D(uSampler, vec2(vTextureCoord.x, vTextureCoord.y + 4.0*blur)) * 0.05;","   gl_FragColor = sum;","}"]},b.BlurYFilter.prototype=Object.create(b.AbstractFilter.prototype),b.BlurYFilter.prototype.constructor=b.BlurYFilter,Object.defineProperty(b.BlurYFilter.prototype,"blur",{get:function(){return this.uniforms.blur.value/(1/7e3)},set:function(a){this.uniforms.blur.value=1/7e3*a}}),b.BlurFilter=function(){this.blurXFilter=new b.BlurXFilter,this.blurYFilter=new b.BlurYFilter,this.passes=[this.blurXFilter,this.blurYFilter]},Object.defineProperty(b.BlurFilter.prototype,"blur",{get:function(){return this.blurXFilter.blur},set:function(a){this.blurXFilter.blur=this.blurYFilter.blur=a}}),Object.defineProperty(b.BlurFilter.prototype,"blurX",{get:function(){return this.blurXFilter.blur},set:function(a){this.blurXFilter.blur=a}}),Object.defineProperty(b.BlurFilter.prototype,"blurY",{get:function(){return this.blurYFilter.blur},set:function(a){this.blurYFilter.blur=a}}),b.InvertFilter=function(){b.AbstractFilter.call(this),this.passes=[this],this.uniforms={invert:{type:"1f",value:1}},this.fragmentSrc=["precision mediump float;","varying vec2 vTextureCoord;","varying vec4 vColor;","uniform float invert;","uniform sampler2D uSampler;","void main(void) {","   gl_FragColor = texture2D(uSampler, vTextureCoord);","   gl_FragColor.rgb = mix( (vec3(1)-gl_FragColor.rgb) * gl_FragColor.a, gl_FragColor.rgb, 1.0 - invert);","}"]},b.InvertFilter.prototype=Object.create(b.AbstractFilter.prototype),b.InvertFilter.prototype.constructor=b.InvertFilter,Object.defineProperty(b.InvertFilter.prototype,"invert",{get:function(){return this.uniforms.invert.value},set:function(a){this.uniforms.invert.value=a}}),b.SepiaFilter=function(){b.AbstractFilter.call(this),this.passes=[this],this.uniforms={sepia:{type:"1f",value:1}},this.fragmentSrc=["precision mediump float;","varying vec2 vTextureCoord;","varying vec4 vColor;","uniform float sepia;","uniform sampler2D uSampler;","const mat3 sepiaMatrix = mat3(0.3588, 0.7044, 0.1368, 0.2990, 0.5870, 0.1140, 0.2392, 0.4696, 0.0912);","void main(void) {","   gl_FragColor = texture2D(uSampler, vTextureCoord);","   gl_FragColor.rgb = mix( gl_FragColor.rgb, gl_FragColor.rgb * sepiaMatrix, sepia);","}"]},b.SepiaFilter.prototype=Object.create(b.AbstractFilter.prototype),b.SepiaFilter.prototype.constructor=b.SepiaFilter,Object.defineProperty(b.SepiaFilter.prototype,"sepia",{get:function(){return this.uniforms.sepia.value},set:function(a){this.uniforms.sepia.value=a}}),b.TwistFilter=function(){b.AbstractFilter.call(this),this.passes=[this],this.uniforms={radius:{type:"1f",value:.5},angle:{type:"1f",value:5},offset:{type:"2f",value:{x:.5,y:.5}}},this.fragmentSrc=["precision mediump float;","varying vec2 vTextureCoord;","varying vec4 vColor;","uniform vec4 dimensions;","uniform sampler2D uSampler;","uniform float radius;","uniform float angle;","uniform vec2 offset;","void main(void) {","   vec2 coord = vTextureCoord - offset;","   float distance = length(coord);","   if (distance < radius) {","       float ratio = (radius - distance) / radius;","       float angleMod = ratio * ratio * angle;","       float s = sin(angleMod);","       float c = cos(angleMod);","       coord = vec2(coord.x * c - coord.y * s, coord.x * s + coord.y * c);","   }","   gl_FragColor = texture2D(uSampler, coord+offset);","}"]},b.TwistFilter.prototype=Object.create(b.AbstractFilter.prototype),b.TwistFilter.prototype.constructor=b.TwistFilter,Object.defineProperty(b.TwistFilter.prototype,"offset",{get:function(){return this.uniforms.offset.value},set:function(a){this.dirty=!0,this.uniforms.offset.value=a}}),Object.defineProperty(b.TwistFilter.prototype,"radius",{get:function(){return this.uniforms.radius.value},set:function(a){this.dirty=!0,this.uniforms.radius.value=a}}),Object.defineProperty(b.TwistFilter.prototype,"angle",{get:function(){return this.uniforms.angle.value},set:function(a){this.dirty=!0,this.uniforms.angle.value=a}}),b.ColorStepFilter=function(){b.AbstractFilter.call(this),this.passes=[this],this.uniforms={step:{type:"1f",value:5}},this.fragmentSrc=["precision mediump float;","varying vec2 vTextureCoord;","varying vec4 vColor;","uniform sampler2D uSampler;","uniform float step;","void main(void) {","   vec4 color = texture2D(uSampler, vTextureCoord);","   color = floor(color * step) / step;","   gl_FragColor = color;","}"]},b.ColorStepFilter.prototype=Object.create(b.AbstractFilter.prototype),b.ColorStepFilter.prototype.constructor=b.ColorStepFilter,Object.defineProperty(b.ColorStepFilter.prototype,"step",{get:function(){return this.uniforms.step.value},set:function(a){this.uniforms.step.value=a}}),b.DotScreenFilter=function(){b.AbstractFilter.call(this),this.passes=[this],this.uniforms={scale:{type:"1f",value:1},angle:{type:"1f",value:5},dimensions:{type:"4fv",value:[0,0,0,0]}},this.fragmentSrc=["precision mediump float;","varying vec2 vTextureCoord;","varying vec4 vColor;","uniform vec4 dimensions;","uniform sampler2D uSampler;","uniform float angle;","uniform float scale;","float pattern() {","   float s = sin(angle), c = cos(angle);","   vec2 tex = vTextureCoord * dimensions.xy;","   vec2 point = vec2(","       c * tex.x - s * tex.y,","       s * tex.x + c * tex.y","   ) * scale;","   return (sin(point.x) * sin(point.y)) * 4.0;","}","void main() {","   vec4 color = texture2D(uSampler, vTextureCoord);","   float average = (color.r + color.g + color.b) / 3.0;","   gl_FragColor = vec4(vec3(average * 10.0 - 5.0 + pattern()), color.a);","}"]},b.DotScreenFilter.prototype=Object.create(b.AbstractFilter.prototype),b.DotScreenFilter.prototype.constructor=b.DotScreenFilter,Object.defineProperty(b.DotScreenFilter.prototype,"scale",{get:function(){return this.uniforms.scale.value},set:function(a){this.dirty=!0,this.uniforms.scale.value=a}}),Object.defineProperty(b.DotScreenFilter.prototype,"angle",{get:function(){return this.uniforms.angle.value},set:function(a){this.dirty=!0,this.uniforms.angle.value=a}}),b.CrossHatchFilter=function(){b.AbstractFilter.call(this),this.passes=[this],this.uniforms={blur:{type:"1f",value:1/512}},this.fragmentSrc=["precision mediump float;","varying vec2 vTextureCoord;","varying vec4 vColor;","uniform float blur;","uniform sampler2D uSampler;","void main(void) {","    float lum = length(texture2D(uSampler, vTextureCoord.xy).rgb);","    gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);","    if (lum < 1.00) {","        if (mod(gl_FragCoord.x + gl_FragCoord.y, 10.0) == 0.0) {","            gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);","        }","    }","    if (lum < 0.75) {","        if (mod(gl_FragCoord.x - gl_FragCoord.y, 10.0) == 0.0) {","            gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);","        }","    }","    if (lum < 0.50) {","        if (mod(gl_FragCoord.x + gl_FragCoord.y - 5.0, 10.0) == 0.0) {","            gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);","        }","    }","    if (lum < 0.3) {","        if (mod(gl_FragCoord.x - gl_FragCoord.y - 5.0, 10.0) == 0.0) {","            gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);","        }","    }","}"]},b.CrossHatchFilter.prototype=Object.create(b.AbstractFilter.prototype),b.CrossHatchFilter.prototype.constructor=b.BlurYFilter,Object.defineProperty(b.CrossHatchFilter.prototype,"blur",{get:function(){return this.uniforms.blur.value/(1/7e3)},set:function(a){this.uniforms.blur.value=1/7e3*a}}),b.RGBSplitFilter=function(){b.AbstractFilter.call(this),this.passes=[this],this.uniforms={red:{type:"2f",value:{x:20,y:20}},green:{type:"2f",value:{x:-20,y:20}},blue:{type:"2f",value:{x:20,y:-20}},dimensions:{type:"4fv",value:[0,0,0,0]}},this.fragmentSrc=["precision mediump float;","varying vec2 vTextureCoord;","varying vec4 vColor;","uniform vec2 red;","uniform vec2 green;","uniform vec2 blue;","uniform vec4 dimensions;","uniform sampler2D uSampler;","void main(void) {","   gl_FragColor.r = texture2D(uSampler, vTextureCoord + red/dimensions.xy).r;","   gl_FragColor.g = texture2D(uSampler, vTextureCoord + green/dimensions.xy).g;","   gl_FragColor.b = texture2D(uSampler, vTextureCoord + blue/dimensions.xy).b;","   gl_FragColor.a = texture2D(uSampler, vTextureCoord).a;","}"]},b.RGBSplitFilter.prototype=Object.create(b.AbstractFilter.prototype),b.RGBSplitFilter.prototype.constructor=b.RGBSplitFilter,Object.defineProperty(b.RGBSplitFilter.prototype,"angle",{get:function(){return this.uniforms.blur.value/(1/7e3)},set:function(a){this.uniforms.blur.value=1/7e3*a}}),"undefined"!=typeof exports?("undefined"!=typeof module&&module.exports&&(exports=module.exports=b),exports.PIXI=b):"undefined"!=typeof define&&define.amd?define(b):a.PIXI=b}).call(this);
+},{}],4:[function(require,module,exports){
+var Vector2 = require('vecmath/lib/Vector2');
+var Class = require('klasse');
+var lerp = require('interpolation').lerp;
+
+function distanceTo(x1, y1, x2, y2) {
+    var dx = x2-x1;
+    var dy = y2-y1;
+    return Math.sqrt(dx*dx+dy*dy);
+}
+
+var tmp1 = new Vector2();
+var tmp2 = new Vector2();
+
+var Shape = new Class({
+
+    initialize: function() {
+        this.steps = 1;
+        this.points = [];
+
+        // If step is not provided to a ***CurveTo function, 
+        // then it will be approximated with a very simple distance check
+        this.approximateCurves = true;
+        this.approximationFactor = 0.5;
+
+        this._move = new Vector2();
+        this._start = new Vector2();
+        this._hasMoved = false;
+        this._newPath = true;
+    },
+
+
+    reset: function() {
+        this.points.length = 0;
+        this._newPath = true;
+        this._hasMoved = false;
+        this._move.x = this._move.y = 0;
+        this._start.x = this._start.y = 0;
+    },
+
+    beginPath: function() {
+        this.reset();
+    },
+    
+    moveTo: function(x, y) {
+        this._newPath = true;
+        this._move.x = x;
+        this._move.y = y;
+        this._start.x = x;
+        this._start.y = y;
+        this._hasMoved = true;
+    },
+
+    __newPoint: function(nx, ny) {
+        this.points.push(new Vector2(nx, ny));
+        this._newPath = false;
+    },
+    
+    /** Closes the path by performing a lineTo with the first 'starting' point. 
+        If the path is empty, this does nothing. */
+    closePath: function(steps) {
+        if (this.points.length===0)
+            return;
+        this.lineTo(this._start.x, this._start.y, steps);
+    },
+    
+    lineTo: function(x, y, steps) {
+        //if we are calling lineTo before any moveTo.. make this the first point
+        if (!this._hasMoved) {
+            this.moveTo(x, y);
+            return;
+        }
+
+        steps = Math.max(1, steps || this.steps);
+        for (var i=0; i<=steps; i++) { 
+            if (!this._newPath && i==0)
+                continue;
+                
+            var t = i/steps;   
+            var nx = lerp(this._move.x, x, t);
+            var ny = lerp(this._move.y, y, t);
+            
+            this.__newPoint(nx, ny);
+        }
+        this._move.x = x;
+        this._move.y = y; 
+    },
+
+    /** Creates a bezier (cubic) curve to the specified point, with the given control points.
+    If steps is not specified or is a falsy value, this function will use the default value
+    set for this Path object. It will be capped to a minimum of 3 steps. 
+    */
+    bezierCurveTo: function(x2, y2, x3, y3, x4, y4, steps) {
+        //if we are calling bezierCurveTo before any moveTo.. the control point takes the lead
+        //this is how it works with HTML5 canvas context
+        if (!this._hasMoved) {
+            this.moveTo(x2, y2);
+        }
+        
+        var x1 = this._move.x;
+        var y1 = this._move.y;
+        
+        //try to approximate with a simple distance sum.
+        //more accurate would be to use this:
+        //http://antigrain.com/research/adaptive_bezier/
+        if (!steps) {
+            if (this.approximateCurves) {
+                var d1 = distanceTo(x1, y1, x2, y2);
+                var d2 = distanceTo(x2, y2, x3, y3);
+                var d3 = distanceTo(x3, y3, x4, y4);
+                steps = ~~((d1 + d2 + d3) * this.approximationFactor);
+            } else {
+                steps = Math.max(1, this.steps);
+            }
+        } 
+        
+        for (var i=0; i<steps; i++) {
+            var t = i / (steps-1);
+            var dt = (1 - t);
+            
+            var dt2 = dt * dt;
+            var dt3 = dt2 * dt;
+            var t2 = t * t;
+            var t3 = t2 * t;
+            
+            var x = dt3 * x1 + 3 * dt2 * t * x2 + 3 * dt * t2 * x3 + t3 * x4;
+            var y = dt3 * y1 + 3 * dt2 * t * y2 + 3 * dt * t2 * y3 + t3 * y4;
+            
+            this.__newPoint(x, y);
+        }
+        
+        this._move.x = x4;
+        this._move.y = y4;
+    },
+    
+    /** Creates a quadratic curve to the specified point, with the given control points.
+    If steps is not specified or is a falsy value, this function will use the default value
+    set for this Path object. It will be capped to a minimum of 3 steps. 
+    */
+    quadraticCurveTo: function(x2, y2, x3, y3, steps) {
+        //parity with HTML5 canvas context, just move to first control point
+        if (!this._hasMoved) {
+            this.moveTo(x2, y2);
+        } 
+        
+        var x1 = this._move.x;
+        var y1 = this._move.y;
+        
+        //try to approximate with a simple distance sum.
+        //more accurate would be to use this:
+        //http://antigrain.com/research/adaptive_bezier/
+        if (!steps) {
+            if (this.approximateCurves) {
+                var d1 = tmp1.set(x1, y1).distance( tmp2.set(x2, y2) );
+                var d2 = tmp1.set(x2, y2).distance( tmp2.set(x3, y3) );
+                steps = ~~((d1 + d2) * this.approximationFactor);
+            } else {
+                steps = Math.max(1, this.steps);
+            }
+        } 
+        
+        for (var i=0; i<steps; i++) {
+            var t = i / (steps-1);
+            var dt = (1 - t);
+            var dtSq = dt * dt;
+            var tSq = t * t;
+            
+            var x = dtSq * x1 + 2 * dt * t * x2 + tSq * x3;
+            var y = dtSq * y1 + 2 * dt * t * y2 + tSq * y3;
+            
+            this.__newPoint(x, y);
+        }
+        
+        this._move.x = x3;
+        this._move.y = y3;
+    },
+
+    calculateBoundingBox: function() {
+        var points = this.points;
+
+        var minX = Number.MAX_VALUE,
+            minY = Number.MAX_VALUE,
+            maxX = -Number.MAX_VALUE,
+            maxY = -Number.MAX_VALUE;
+
+        for (var i=0; i<points.length; i++) {
+            var p = points[i];
+
+            minX = Math.min(minX, p.x);
+            minY = Math.min(minY, p.y);
+            maxX = Math.max(maxX, p.x);
+            maxY = Math.max(maxY, p.y);
+        }
+
+        return {
+            x: minX,
+            y: minY,
+            width: maxX-minX,
+            height: maxY-minY
+        };
+    },
+
+    contains: function(x, y) {
+        var testx = x, testy = y;
+        if (typeof x === "object") {
+            testx = x.x;
+            testy = x.y;
+        }
+
+        var points = this.points;
+        var nvert = points.length;
+        var i, j, c = 0;
+        for (i=0, j=nvert-1; i<nvert; j=i++) {
+            if ( ((points[i].y>testy) != (points[j].y>testy)) &&
+                (testx < (points[j].x-points[i].x) * (testy-points[i].y) / (points[j].y-points[i].y) + points[i].x) ) {
+                c = !c;
+            }
+        }
+        return c;
+    },
+
+
+    simplify: function(tolerance, out) {
+        var points = this.points,
+            len = points.length,
+            point = new Vector2(),
+            sqTolerance = tolerance*tolerance,
+            prevPoint = new Vector2( points[0] );
+
+        if (!out)
+            out = new Shape();
+
+        var outPoints = [];
+        outPoints.push(prevPoint);
+
+        for (var i=1; i<len; i++) {
+            point = points[i];
+            if ( point.distanceSq(prevPoint) > sqTolerance ) {
+                outPoints.push(new Vector2(point));
+                prevPoint = point;
+            }
+        }
+        if (prevPoint.x !== point.x || prevPoint.y !== point.y)
+            outPoints.push(new Vector2(point));
+
+        out.points = outPoints;
+        return out; 
+    }
+});
+
+module.exports = Shape;
+},{"interpolation":5,"klasse":6,"vecmath/lib/Vector2":7}],5:[function(require,module,exports){
+/** Utility function for linear interpolation. */
+module.exports.lerp = function(v0, v1, t) {
+    return v0*(1-t)+v1*t;
+};
+
+/** Utility function for Hermite interpolation. */
+module.exports.smoothstep = function(v0, v1, t) {
+    // Scale, bias and saturate x to 0..1 range
+    t = Math.max(0.0, Math.min(1.0, (t - v0)/(v1 - v0) ));
+    // Evaluate polynomial
+    return t*t*(3 - 2*t);
+};
+},{}],6:[function(require,module,exports){
+function hasGetterOrSetter(def) {
+	return (!!def.get && typeof def.get === "function") || (!!def.set && typeof def.set === "function");
+}
+
+function getProperty(definition, k, isClassDescriptor) {
+	//This may be a lightweight object, OR it might be a property
+	//that was defined previously.
+	
+	//For simple class descriptors we can just assume its NOT previously defined.
+	var def = isClassDescriptor 
+				? definition[k] 
+				: Object.getOwnPropertyDescriptor(definition, k);
+
+	if (!isClassDescriptor && def.value && typeof def.value === "object") {
+		def = def.value;
+	}
+
+
+	//This might be a regular property, or it may be a getter/setter the user defined in a class.
+	if ( def && hasGetterOrSetter(def) ) {
+		if (typeof def.enumerable === "undefined")
+			def.enumerable = true;
+		if (typeof def.configurable === "undefined")
+			def.configurable = true;
+		return def;
+	} else {
+		return false;
+	}
+}
+
+function hasNonConfigurable(obj, k) {
+	var prop = Object.getOwnPropertyDescriptor(obj, k);
+	if (!prop)
+		return false;
+
+	if (prop.value && typeof prop.value === "object")
+		prop = prop.value;
+
+	if (prop.configurable === false) 
+		return true;
+
+	return false;
+}
+
+//TODO: On create, 
+//		On mixin, 
+
+function extend(ctor, definition, isClassDescriptor, extend) {
+	for (var k in definition) {
+		if (!definition.hasOwnProperty(k))
+			continue;
+
+		var def = getProperty(definition, k, isClassDescriptor);
+
+		if (def !== false) {
+			//If Extends is used, we will check its prototype to see if 
+			//the final variable exists.
+			
+			var parent = extend || ctor;
+			if (hasNonConfigurable(parent.prototype, k)) {
+
+				//just skip the final property
+				if (Class.ignoreFinals)
+					continue;
+
+				//We cannot re-define a property that is configurable=false.
+				//So we will consider them final and throw an error. This is by
+				//default so it is clear to the developer what is happening.
+				//You can set ignoreFinals to true if you need to extend a class
+				//which has configurable=false; it will simply not re-define final properties.
+				throw new Error("cannot override final property '"+k
+							+"', set Class.ignoreFinals = true to skip");
+			}
+
+			Object.defineProperty(ctor.prototype, k, def);
+		} else {
+			ctor.prototype[k] = definition[k];
+		}
+
+	}
+}
+
+/**
+ */
+function mixin(myClass, mixins) {
+	if (!mixins)
+		return;
+
+	if (!Array.isArray(mixins))
+		mixins = [mixins];
+
+	for (var i=0; i<mixins.length; i++) {
+		extend(myClass, mixins[i].prototype || mixins[i]);
+	}
+}
+
+/**
+ * Creates a new class with the given descriptor.
+ * The constructor, defined by the name `initialize`,
+ * is an optional function. If unspecified, an anonymous
+ * function will be used which calls the parent class (if
+ * one exists). 
+ *
+ * You can also use `Extends` and `Mixins` to provide subclassing
+ * and inheritance.
+ *
+ * @class  Class
+ * @constructor
+ * @param {Object} definition a dictionary of functions for the class
+ * @example
+ *
+ * 		var MyClass = new Class({
+ * 		
+ * 			initialize: function() {
+ * 				this.foo = 2.0;
+ * 			},
+ *
+ * 			bar: function() {
+ * 				return this.foo + 5;
+ * 			}
+ * 		});
+ */
+function Class(definition) {
+	if (!definition)
+		definition = {};
+
+	//The variable name here dictates what we see in Chrome debugger
+	var initialize;
+	var Extends;
+
+	if (definition.initialize) {
+		if (typeof definition.initialize !== "function")
+			throw new Error("initialize must be a function");
+		initialize = definition.initialize;
+
+		//Usually we should avoid "delete" in V8 at all costs.
+		//However, its unlikely to make any performance difference
+		//here since we only call this on class creation (i.e. not object creation).
+		delete definition.initialize;
+	} else {
+		if (definition.Extends) {
+			var base = definition.Extends;
+			initialize = function () {
+				base.apply(this, arguments);
+			}; 
+		} else {
+			initialize = function () {}; 
+		}
+	}
+
+	if (definition.Extends) {
+		initialize.prototype = Object.create(definition.Extends.prototype);
+		initialize.prototype.constructor = initialize;
+		//for getOwnPropertyDescriptor to work, we need to act
+		//directly on the Extends (or Mixin)
+		Extends = definition.Extends;
+		delete definition.Extends;
+	} else {
+		initialize.prototype.constructor = initialize;
+	}
+
+	//Grab the mixins, if they are specified...
+	var mixins = null;
+	if (definition.Mixins) {
+		mixins = definition.Mixins;
+		delete definition.Mixins;
+	}
+
+	//First, mixin if we can.
+	mixin(initialize, mixins);
+
+	//Now we grab the actual definition which defines the overrides.
+	extend(initialize, definition, true, Extends);
+
+	return initialize;
+};
+
+Class.extend = extend;
+Class.mixin = mixin;
+Class.ignoreFinals = false;
+
+module.exports = Class;
+},{}],7:[function(require,module,exports){
+function Vector2(x, y) {
+	if (typeof x === "object") {
+        this.x = x.x||0;
+        this.y = x.y||0;
+    } else {
+        this.x = x||0;
+        this.y = y||0;
+    }
+}
+
+//shorthand it for better minification
+var vec2 = Vector2.prototype;
+
+/**
+ * Returns a new instance of Vector2 with
+ * this vector's components. 
+ * @return {Vector2} a clone of this vector
+ */
+vec2.clone = function() {
+    return new Vector2(this.x, this.y);
+};
+
+/**
+ * Copies the x, y components from the specified
+ * Vector. Any undefined components from `otherVec`
+ * will default to zero.
+ * 
+ * @param  {otherVec} the other Vector2 to copy
+ * @return {Vector2}  this, for chaining
+ */
+vec2.copy = function(otherVec) {
+    this.x = otherVec.x||0;
+    this.y = otherVec.y||0;
+    return this;
+};
+
+/**
+ * A convenience function to set the components of
+ * this vector as x and y. Falsy or undefined
+ * parameters will default to zero.
+ *
+ * You can also pass a vector object instead of
+ * individual components, to copy the object's components.
+ * 
+ * @param {Number} x the x component
+ * @param {Number} y the y component
+ * @return {Vector2}  this, for chaining
+ */
+vec2.set = function(x, y) {
+    if (typeof x === "object") {
+        this.x = x.x||0;
+        this.y = x.y||0;
+    } else {
+        this.x = x||0;
+        this.y = y||0;
+    }
+    return this;
+};
+
+vec2.add = function(v) {
+    this.x += v.x;
+    this.y += v.y;
+    return this;
+};
+
+vec2.subtract = function(v) {
+    this.x -= v.x;
+    this.y -= v.y;
+    return this;
+};
+
+vec2.multiply = function(v) {
+    this.x *= v.x;
+    this.y *= v.y;
+    return this;
+};
+
+vec2.scale = function(s) {
+    this.x *= s;
+    this.y *= s;
+    return this;
+};
+
+vec2.divide = function(v) {
+    this.x /= v.x;
+    this.y /= v.y;
+    return this;
+};
+
+vec2.negate = function() {
+    this.x = -this.x;
+    this.y = -this.y;
+    return this;
+};
+
+vec2.distance = function(v) {
+    var dx = v.x - this.x,
+        dy = v.y - this.y;
+    return Math.sqrt(dx*dx + dy*dy);
+};
+
+vec2.distanceSq = function(v) {
+    var dx = v.x - this.x,
+        dy = v.y - this.y;
+    return dx*dx + dy*dy;
+};
+
+vec2.length = function() {
+    var x = this.x,
+        y = this.y;
+    return Math.sqrt(x*x + y*y);
+};
+
+vec2.lengthSq = function() {
+    var x = this.x,
+        y = this.y;
+    return x*x + y*y;
+};
+
+vec2.normalize = function() {
+    var x = this.x,
+        y = this.y;
+    var len = x*x + y*y;
+    if (len > 0) {
+        len = 1 / Math.sqrt(len);
+        this.x = x*len;
+        this.y = y*len;
+    }
+    return this;
+};
+
+vec2.dot = function(v) {
+    return this.x * v.x + this.y * v.y;
+};
+
+//Unlike Vector3, this returns a scalar
+//http://allenchou.net/2013/07/cross-product-of-2d-vectors/
+vec2.cross = function(v) {
+    return this.x * v.y - this.y * v.x;
+};
+
+vec2.lerp = function(v, t) {
+    var ax = this.x,
+        ay = this.y;
+    t = t||0;
+    this.x = ax + t * (v.x - ax);
+    this.y = ay + t * (v.y - ay);
+    return this;
+};
+
+vec2.transformMat3 = function(mat) {
+    var x = this.x, y = this.y, m = mat.val;
+    this.x = m[0] * x + m[3] * y + m[6];
+    this.y = m[1] * x + m[4] * y + m[7];
+    return this;
+};
+
+vec2.transformMat4 = function(mat) {
+    var x = this.x, 
+        y = this.y,
+        m = mat.val;
+    this.x = m[0] * x + m[4] * y + m[12];
+    this.y = m[1] * x + m[5] * y + m[13];
+    return this;
+};
+
+vec2.reset = function() {
+    this.x = 0;
+    this.y = 0;
+    return this;
+};
+
+vec2.sub = vec2.subtract;
+
+vec2.mul = vec2.multiply;
+
+vec2.div = vec2.divide;
+
+vec2.dist = vec2.distance;
+
+vec2.distSq = vec2.distanceSq;
+
+vec2.len = vec2.length;
+
+vec2.lenSq = vec2.lengthSq;
+
+vec2.toString = function() {
+    return 'Vector2(' + this.x + ', ' + this.y + ')';
+};
+
+vec2.random = function(scale) {
+    scale = scale || 1.0;
+    var r = Math.random() * 2.0 * Math.PI;
+    this.x = Math.cos(r) * scale;
+    this.y = Math.sin(r) * scale;
+    return this;
+};
+
+vec2.str = vec2.toString;
+
+module.exports = Vector2;
+},{}],8:[function(require,module,exports){
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: true, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
+
 'use strict';
 
 exports.intFromBoolean = function (b) {
@@ -6370,7 +7503,12 @@ exports.intFromBoolean = function (b) {
 exports.booleanFromInt = function (i) {
     return (i === null) ? false : i > 0;
 };
-},{}],3:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: true, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
+
 /**
  * Copyright (c) 2010, Jeash contributors.
  * 
@@ -6615,7 +7753,12 @@ var matrix = function (inA, inB, inC, inD, inTx, inTy) {
 };
 
 module.exports = matrix;
-},{"../janicek/core":9}],4:[function(require,module,exports){
+},{"../janicek/core":19}],10:[function(require,module,exports){
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: true, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
+
 'use strict';
 
 module.exports = {
@@ -6682,7 +7825,12 @@ module.exports = {
     }
 
 };
-},{}],5:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: true, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
+
 'use strict';
 
 module.exports = function (x, y, width, height) {
@@ -6702,7 +7850,12 @@ module.exports.core = function (rectangle) {
         bottom: function () { return rectangle.y + rectangle.height; }
     };
 };
-},{}],6:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: true, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
+
 /**
  * Copyright (c) 2010, Jeash contributors.
  * 
@@ -6867,20 +8020,205 @@ Object.defineProperties(vector3d, {
 });
 
 module.exports = vector3d;
-},{"../janicek/core":9}],7:[function(require,module,exports){
+},{"../janicek/core":19}],13:[function(require,module,exports){
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: true, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
+
 'use strict';
 
-module.exports = {
-    canvasRender: require('./voronoimap/canvas-render'),
-    islandShape: require('./voronoimap/island-shape'),
-    lava: require('./voronoimap/lava'),
-    map: require('./voronoimap/map'),
-    noisyEdges: require('./voronoimap/noisy-edges'),
-    roads: require('./voronoimap/roads'),
-    style: require('./voronoimap/style'),
-    watersheds: require('./voronoimap/watersheds')
+module.exports = function () {
+    return {
+        index: null,
+      
+        point: null,        // Point location
+        water: null,        // lake or ocean
+        ocean: null,        // ocean
+        coast: null,        // land polygon touching an ocean
+        border: null,       // at the edge of the map
+        biome: null,          // biome type (see article)
+        elevation: null,     // 0.0-1.0
+        moisture: null,      // 0.0-1.0
+
+        neighbors: null,    // Vector<Center>
+        borders: null,      // Vector<Edge>
+        corners: null       // Vector<Corner>
+    };
 };
-},{"./voronoimap/canvas-render":34,"./voronoimap/island-shape":38,"./voronoimap/lava":39,"./voronoimap/map":40,"./voronoimap/noisy-edges":41,"./voronoimap/roads":42,"./voronoimap/style":43,"./voronoimap/watersheds":44}],8:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: true, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
+
+'use strict';
+
+module.exports = function () {
+    return {
+        index: null,
+      
+        point: null,  // location
+        ocean: null,  // ocean
+        water: null,  // lake or ocean
+        coast: null,  // touches ocean and land polygons
+        border: null,  // at the edge of the map
+        elevation: null,  // 0.0-1.0
+        moisture: null,  // 0.0-1.0
+
+        touches: null,
+        protrudes: null,
+        adjacent: null,
+      
+        river: null,  // 0 if no river, or volume of water in river
+        downslope: null,  // pointer to adjacent corner most downhill
+        watershed: null,  // pointer to coastal corner, or null
+        watershedSize: null
+    };
+};
+},{}],15:[function(require,module,exports){
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: true, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
+
+'use strict';
+
+module.exports = function () {
+    return {
+        index: 0,
+        d0: null,  // Delaunay edge
+        d1: null,  // Delaunay edge
+        v0: null,  // Voronoi edge
+        v1: null,  // Voronoi edge
+        midpoint: null,  // halfway between v0,v1
+        river: 0  // volume of water, or 0
+    };
+};
+},{}],16:[function(require,module,exports){
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: false, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
+
+/**
+ * Factory class to build the 'inside' function that tells us whether
+ * a point should be on the island or in the water.
+ * 
+ * This class has factory functions for generating islands of
+ * different shapes. The factory returns a function that takes a
+ * normalized point (x and y are -1 to +1) and returns true if the
+ * point should be on the island, and false if it should be water
+ * (lake or ocean).
+ */
+
+'use strict';
+
+var array2d = require('./janicek/array2d');
+var core = require('./janicek/core');
+var distanceFromOrigin = require('./as3/point-core').distanceFromOrigin;
+var perlinNoise = require('./janicek/perlin-noise');
+var prngModule = require('./polygonal/pm-prng');
+var prng = require('./janicek/pseudo-random-number-generators');
+
+/**
+* The radial island radius is based on overlapping sine waves 
+* @param seed
+* @param islandFactor = 1.0 means no small islands; 2.0 leads to a lot
+*/
+exports.makeRadial = function (seed, islandFactor) {
+    islandFactor = core.def(islandFactor, 1.07);
+
+    var islandRandom = prngModule();
+    islandRandom.seed = seed;
+    var bumps = islandRandom.nextIntRange(1, 6);
+    var startAngle = islandRandom.nextDoubleRange(0, 2 * Math.PI);
+    var dipAngle = islandRandom.nextDoubleRange(0, 2 * Math.PI);
+    var dipWidth = islandRandom.nextDoubleRange(0.2, 0.7);
+
+    function inside(q) {
+        var angle = Math.atan2(q.y, q.x);
+        var length = 0.5 * (Math.max(Math.abs(q.x), Math.abs(q.y)) + distanceFromOrigin(q));
+
+        var r1 = 0.5 + 0.40 * Math.sin(startAngle + bumps * angle + Math.cos((bumps + 3) * angle));
+        var r2 = 0.7 - 0.20 * Math.sin(startAngle + bumps * angle - Math.sin((bumps + 2) * angle));
+        if (Math.abs(angle - dipAngle) < dipWidth ||
+            Math.abs(angle - dipAngle + 2 * Math.PI) < dipWidth ||
+            Math.abs(angle - dipAngle - 2 * Math.PI) < dipWidth) {
+            r1 = r2 = 0.2;
+        }
+        return  (length < r1 || (length > r1 * islandFactor && length < r2));
+    }
+
+    return inside;
+};
+
+/**
+ * The Perlin-based island combines perlin noise with the radius.
+ * @param   seed
+ * @param   oceanRatio 0 = least ocean, 1 = most ocean
+ */
+exports.makePerlin = function (seed, oceanRatio) {
+    oceanRatio = core.def(oceanRatio, 0.5);
+
+    var landRatioMinimum = 0.1;
+    var landRatioMaximum = 0.5;
+    oceanRatio = ((landRatioMaximum - landRatioMinimum) * oceanRatio) + landRatioMinimum;  //min: 0.1 max: 0.5
+    var perlin = array2d(perlinNoise.makePerlinNoise(256, 256, 1.0, 1.0, 1.0, seed, 8));
+    //perlin.perlinNoise(64, 64, 8, seed, false, true); //mapgen2
+
+    return function (q) {
+        var c = (perlin.get(core.toInt((q.x + 1) * 128), core.toInt((q.y + 1) * 128)) & 0xff) / 255.0;
+        //var c:Number = (perlin.getPixel(Std.int((q.x+1)*128), Std.int((q.y+1)*128)) & 0xff) / 255.0; //mapgen2
+        return c > (oceanRatio + oceanRatio * distanceFromOrigin(q) * distanceFromOrigin(q));
+    };
+};
+
+/**
+ * The square shape fills the entire space with land
+ */
+exports.makeSquare = function () {
+    return function (q) {
+        return true;
+    };
+};
+
+/**
+* The blob island is shaped like Amit's blob logo
+*/
+exports.makeBlob = function () {
+    return function (q) {
+        var eye1 = distanceFromOrigin({ x: q.x - 0.2, y: q.y / 2 + 0.2 }) < 0.05;
+        var eye2 = distanceFromOrigin({ x: q.x + 0.2, y: q.y / 2 + 0.2 }) < 0.05;
+        var body = distanceFromOrigin(q) < 0.8 - 0.18 * Math.sin(5 * Math.atan2(q.y, q.x));
+        return body && !eye1 && !eye2;
+    };
+};
+
+/**
+ * Make island from bitmap.
+ * @param {[[boolean]]} bitmap
+ */
+exports.makeBitmap = function (bitmap) {
+    bitmap = array2d(bitmap);
+    var dimensions = bitmap.dimensions();
+    return function (q) {
+        var x = core.toInt(((q.x + 1) / 2) * dimensions.x);
+        var y = core.toInt(((q.y + 1) / 2) * dimensions.y);
+        return bitmap.get(x, y);
+    };
+};
+
+/**
+ * Make island from simple noise.
+ */
+exports.makeNoise = function (seed) {
+    return function (q) {
+        seed = prng.nextParkMiller(seed);
+        return prng.toBool(seed);
+    };
+};
+},{"./as3/point-core":10,"./janicek/array2d":17,"./janicek/core":19,"./janicek/perlin-noise":23,"./janicek/pseudo-random-number-generators":24,"./polygonal/pm-prng":49}],17:[function(require,module,exports){
 /* jshint bitwise:false */
 
 'use strict';
@@ -7003,18 +8341,245 @@ module.exports.getIndices = function (index, width, blockSize) {
         y : core.toInt((index / blockSize) / width)
     };
 };
-},{"./core":9,"lodash":1}],9:[function(require,module,exports){
-/* jshint bitwise:false */
+},{"./core":19,"lodash":1}],18:[function(require,module,exports){
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: true, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
+
+'use strict';
+
+var array2d = require('./array2d');
+var core = require('./core');
+var htmlColor = require('./html-color');
+var math = require('./math');
+var prng = require('./pseudo-random-number-generators');
+
+
+var CANVAS_ELEMENTS_PER_PIXEL = 4;
+var CANVAS_RED_OFFSET = 0;
+var CANVAS_GREEN_OFFSET = 1;
+var CANVAS_BLUE_OFFSET = 2;
+var CANVAS_ALPHA_OFFSET = 3;
+
+
+/**
+ * Iterate canvas pixel array color channels.
+ * Functor is called with red, green, blue, and alpha channel values for each pixel.
+ * Functor can return new color channel values which will be assigned to pixel. Null values are ignored.
+ * 
+ * Can be used to analyze and transform a canvas pixel array.
+ */
+exports.renderCanvasPixelArray = function (imageData, f) {
+    var pixels = imageData.data;
+    var index;
+    for (var i = 0; i < core.toInt(pixels.length / CANVAS_ELEMENTS_PER_PIXEL); i++) {
+        index = i * CANVAS_ELEMENTS_PER_PIXEL;
+        var newValues = f(index, pixels[index + CANVAS_RED_OFFSET], pixels[index + CANVAS_GREEN_OFFSET], pixels[index + CANVAS_BLUE_OFFSET], pixels[index + CANVAS_ALPHA_OFFSET]);
+        if (newValues !== null) {
+            if (newValues.red !== null) {
+                pixels[index + CANVAS_RED_OFFSET] = newValues.red;
+            }
+            if (newValues.green !== null) {
+                pixels[index + CANVAS_GREEN_OFFSET] = newValues.green;
+            }
+            if (newValues.blue !== null) {
+                pixels[index + CANVAS_BLUE_OFFSET] = newValues.blue;
+            }
+            if (newValues.alpha !== null) {
+                pixels[index + CANVAS_ALPHA_OFFSET] = newValues.alpha;
+            }
+        }
+    }
+};
+
+/**
+ * Add random noise to image data by modifying each pixel color channel by a random amount between + and - noiseLevel.
+ * @param   noiseLevel Value between 1 and 255
+ * @param   grayScale True to change all color channels by same amount so only brightness of pixel is changed and not color. Doesn't affect alpha. (Default = false)
+ * @param   red Add noise to red channel. (Default = true)
+ * @param   green Add noise to green channel. (Default = true)
+ * @param   blue Add noise to blue channel. (Default = true)
+ * @param   alpha Add noise to alpha channel. (Default = false)
+ * @return  New bitmap containing the bitmap passed in with noise added.
+ */
+exports.addNoise = function (pixelData, randomSeed, noiseLevel, grayScale, changeRed, changeGreen, changeBlue, changeAlpha) {
+
+    grayScale = core.def(grayScale, false);
+    changeRed = core.def(changeRed, true);
+    changeGreen = core.def(changeGreen, true);
+    changeBlue = core.def(changeBlue, true);
+    changeAlpha = core.def(changeAlpha, false);
+
+    var gen = prng.randomGenerator(randomSeed, prng.nextParkMiller);
+
+    noiseLevel = math.clamp(noiseLevel, 1, 255);
+    var delta;
+    
+    exports.renderCanvasPixelArray(pixelData, function (index, red, green, blue, alpha) {
+        delta = prng.toIntRange(gen(), -noiseLevel, noiseLevel);
+        var newColors = { red: null, green: null, blue: null, alpha: null };
+        if (changeRed) {
+            newColors.red = red + delta;
+        }
+        if (changeGreen) {
+            newColors.green = green + (grayScale ? delta : prng.toIntRange(gen(), -noiseLevel, noiseLevel));
+        }
+        if (changeBlue) {
+            newColors.blue = blue + (grayScale ? delta : prng.toIntRange(gen(), -noiseLevel, noiseLevel));
+        }
+        if (changeAlpha) {
+            newColors.alpha = alpha + prng.toIntRange(gen(), -noiseLevel, noiseLevel);
+        }
+        return newColors;
+    });
+    
+    return pixelData;
+};
+
+/**
+ * Add noise to canvas.
+ * @param   context Canvas drawing context.
+ * @param   randomSeed Random seed to use to make random noise.
+ * @param   noiseLevel Value between 1 and 255
+ * @param   grayScale True to change all color channels by same amount so only brightness of pixel is changed and not color. Doesn't affect alpha. (Default = false)
+ * @param   red Add noise to red channel. (Default = true)
+ * @param   green Add noise to green channel. (Default = true)
+ * @param   blue Add noise to blue channel. (Default = true)
+ * @param   alpha Add noise to alpha channel. (Default = false)
+ */
+exports.addNoiseToCanvas = function (context, randomSeed, noiseLevel, grayScale, red, green, blue, alpha) {
+    grayScale = core.def(grayScale, false);
+    red = core.def(red, true);
+    green = core.def(green, true);
+    blue = core.def(blue, true);
+    alpha = core.def(alpha, false);
+
+    var imageData = context.getImageData(0, 0, context.canvas.width, context.canvas.height);
+    imageData = exports.addNoise(imageData, randomSeed, noiseLevel, grayScale, red, green, blue, alpha);
+    context.putImageData(imageData, 0, 0);
+};
+
+// ------------------------------------------------------------------------
+// Images
+
+/**
+ * Load a file into an image.
+ */
+exports.loadFileIntoImage = function (file, img) {
+    var reader = new FileReader();
+    reader.onload = function (event) {
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+};
+
+/**
+ * Get image data from an HTML image.
+ */
+exports.getImageData = function (image) {
+    var canvas = document.createElement('canvas');
+    canvas.width = image.width;
+    canvas.height = image.height;
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(image, 0, 0);
+    var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    return imageData;
+};
+
+/**
+ * Make image data URL from image data.
+ */
+exports.makeImageDataUrlFromImageData = function (imageData) {
+    var canvas = document.createElement('canvas');
+    canvas.width = imageData.width;
+    canvas.height = imageData.height;
+    canvas.getContext('2d').putImageData(imageData, 0, 0);
+    return canvas.toDataURL();
+};
+
+// ------------------------------------------------------------------------
+// Monochrome Converters
+
+/**
+ * Converts HTML5 image data to monochrome image data by comparing the average of each color channel to a
+ * threshold value to determine which color channels are converted to target monochrome colors.
+ * @param   threshold Value between 0 and 255.
+ * @param   lessthanThresholdColor Color to use for pixels below threshold.
+ * @param   greaterthanOrEqualToThresholdColor Color to use for pixels equal to or above threshold.
+ * @param   alpha Optioal alpha to assign to result pixels. (default = 1.0)
+ */
+exports.makeAverageThresholdImageData = function (imageData, threshold, lessthanThresholdColor, greaterthanOrEqualToThresholdColor, alpha) {
+    alpha = core.def(alpha, 1.0);
+    var intAlpha = htmlColor.colorFraction(alpha);
+    exports.renderCanvasPixelArray(imageData, function (index, red, green, blue, alpha) {
+        var color = math.average([red, green, blue]) >= threshold ? greaterthanOrEqualToThresholdColor : lessthanThresholdColor;
+        return {
+            red : htmlColor.getRedComponent(color),
+            green : htmlColor.getGreenComponent(color),
+            blue : htmlColor.getBlueComponent(color),
+            alpha : intAlpha
+        };
+    });
+    return imageData;
+};
+
+/**
+ * Convert image to monochrome bitmap boolean array.
+ * Converts HTML5 image data to a 2D Array of Bool by comparing the average of each color channel to a
+ * threshold value to determine which color channels are converted to 0 and 1.
+ * @param {ImageData} imageData Image data
+ * @param {int} threshold Value between 0 and 255.
+ */
+exports.makeAverageThresholdBitmap = function (imageData, threshold) {
+    threshold = math.clamp(threshold, 0, 255);
+    return exports.makeBitmap(imageData, function (red, green, blue, alpha) {
+        return math.average([red, green, blue]) >= threshold;
+    });
+};
+
+/**
+ * Make a boolean array from html image data.
+ * @param {ImageData} imageData Image data
+ * @returns {[[bool]]} bitmap
+ */
+exports.makeBitmap = function (imageData, f) {
+    var array = array2d([]);
+    var imageDataWidth = core.toInt(imageData.width);
+    exports.renderCanvasPixelArray(imageData, function (index, red, green, blue, alpha) {
+        var indices = array2d.getIndices(index, imageDataWidth, CANVAS_ELEMENTS_PER_PIXEL);
+        array.set(indices.x, indices.y, f(red, green, blue, alpha));
+        return null;
+    });
+    return array.value;
+};
+
+/**
+ * Inverts an array of bool.
+ * @param   bitmap Array of bool to invert.
+ * @param {[[bool]]} bitmap
+ * @returns {[[bool]]} Inverted array of bool.
+ */
+exports.invertBitmap = function (bitmap) {
+    var bm = array2d(bitmap);
+    bm.foreachXY(function (x, y, value) {
+        bm.set(x, y, !value);
+    });
+    return bm.value;
+};
+},{"./array2d":17,"./core":19,"./html-color":21,"./math":22,"./pseudo-random-number-generators":24}],19:[function(require,module,exports){
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: false, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
 
 'use strict';
 
 var _ = require('lodash');
 
 module.exports = {
-    /**
-     * Return value or default if undefined.
-     * Usefull for assigning argument default values.
-     */
+    // Return value or default if undefined.
+    // Usefull for assigning argument default values.
     def: function (value, defaultValue) {
         return _.isUndefined(value) ? defaultValue : value;
     },
@@ -7023,9 +8588,7 @@ module.exports = {
         return something | 0;
     },
 
-    /**
-     * Return first argument that is not undefined and not null.
-     */
+    // Return first argument that is not undefined and not null.
     coalesce: function () {
         return _.find(arguments, function (arg) {
             return !_.isNull(arg) && !_.isUndefined(arg);
@@ -7036,7 +8599,7 @@ module.exports = {
         return _.isUndefined(thing) || _.isNull(thing);
     }
 };
-},{"lodash":1}],10:[function(require,module,exports){
+},{"lodash":1}],20:[function(require,module,exports){
 /**
  * janicek-core-js
  * ------------------
@@ -7114,7 +8677,7 @@ exports.javaHashCode = function (string) {
     }
     return hash;
 };
-},{}],11:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 /* jshint bitwise:false */
 
 'use strict';
@@ -7238,7 +8801,31 @@ exports.hsl = function (hue, saturation, lightness) {
 exports.hsla = function (hue, saturation, lightness, alpha) {
     return 'hsla(' + hue + ',' + saturation * 100 + '%,' + lightness * 100 + '%,' + alpha + ')';
 };
-},{"./core":9}],12:[function(require,module,exports){
+},{"./core":19}],22:[function(require,module,exports){
+'use strict';
+
+var _ = require('lodash');
+
+exports.average = function (numbers) {
+    return _.reduce(numbers, function (total, number) {
+        return total + number;
+    }) / _.size(numbers);
+};
+
+/**
+ * clamp a Float to an interval
+ * interval endpoints are compared to get min and max, so it doesn't matter what order they are passed in
+ * @param   value value to clamp
+ * @param   minOrMax1 interval endpoint
+ * @param   minOrMax2 interval endpoint
+ * @return  clamped value to given interval
+ */
+exports.clamp = function (value, minOrMax1, minOrMax2) {
+    var min = Math.min(minOrMax1, minOrMax2);
+    var max = Math.max(minOrMax1, minOrMax2);
+    return value < min ? min : value > max ? max : value;
+};
+},{"lodash":1}],23:[function(require,module,exports){
 /* jshint bitwise:false */
 
 /**
@@ -7440,7 +9027,7 @@ exports.makePerlinNoise = function (width, height, _x, _y, _z, seed, octaves, fa
     }
     return bitmap.value;
 };
-},{"./array2d":8}],13:[function(require,module,exports){
+},{"./array2d":17}],24:[function(require,module,exports){
 /* jshint bitwise:false */
 
 'use strict';
@@ -7553,7 +9140,860 @@ exports.randomGenerator = function (seed, nextRandomNumberAlgorithm) {
         return seed;
     };
 };
-},{"./hash":10}],14:[function(require,module,exports){
+},{"./hash":20}],25:[function(require,module,exports){
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: true, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
+
+'use strict';
+
+var _ = require('lodash');
+var cc = require('./as3/conversion-core');
+
+module.exports = function () {
+    return {
+
+        // The lava array marks the edges that hava lava.
+        lava: [], // Array<Boolean> edge index -> Boolean
+
+        // Lava fissures are at high elevations where moisture is low
+        createLava: function (map, randomDouble) {
+            _(map.edges).each(function (edge) {
+                if (!cc.booleanFromInt(edge.river) &&
+                    !edge.d0.water && !edge.d1.water &&
+                    edge.d0.elevation > 0.8 && edge.d1.elevation > 0.8 &&
+                    edge.d0.moisture < 0.3 && edge.d1.moisture < 0.3 &&
+                    randomDouble() < exports.FRACTION_LAVA_FISSURES) {
+
+                    this.lava[edge.index] = true;
+                }
+            });
+        }
+
+    };
+};
+
+module.exports.FRACTION_LAVA_FISSURES = 0.2;  // 0 to 1, probability of fissure
+},{"./as3/conversion-core":8,"lodash":1}],26:[function(require,module,exports){
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: true, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
+
+'use strict';
+
+var _ = require('lodash');
+var mapModule = require('./map');
+
+var api = {};
+
+api.countLands = function (centers) {
+    return _(_(centers).filter(function (c) { return !c.water; })).size();
+};
+
+// Rebuilds the map varying the number of points until desired number of land
+// centers are generated or timeout is reached. Not an efficient algorithim,
+// but gets the job done.
+api.tryMutateMapPointsToGetNumberLands = function (map, pointSelector, numberOfLands, options) {
+    options = _.defaults(options || {}, {
+        timeoutMilliseconds: 10 * 1000,
+        initialNumberOfPoints: numberOfLands,
+        lakeThreshold: mapModule.DEFAULT_LAKE_THRESHOLD
+    });
+
+    var pointCount = options.initialNumberOfPoints;
+    var startTime = Date.now();
+    var targetLandCountFound = false;
+    do {
+        map.go0PlacePoints(pointCount, pointSelector);
+        map.go1BuildGraph();
+        map.go2AssignElevations(options.lakeThreshold);
+        var lands = api.countLands(map.centers);
+        if (lands === numberOfLands) {
+            targetLandCountFound = true;
+        } else {
+            pointCount += (lands < numberOfLands ? 1 : -1);
+        }
+    } while (!targetLandCountFound && Date.now() - startTime < options.timeoutMilliseconds);
+    return map;
+};
+
+module.exports = api;
+},{"./map":27,"lodash":1}],27:[function(require,module,exports){
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: true, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
+
+'use strict';
+
+var _ = require('lodash');
+var centerModule = require('./graph/center');
+var convert = require('./as3/conversion-core');
+var core = require('./janicek/core');
+var cornerModule = require('./graph/corner');
+var edgeModule = require('./graph/edge');
+var pc = require('./as3/point-core');
+var pointSelectorModule = require('./point-selector');
+var prng = require('./polygonal/pm-prng');
+var rectangle = require('./as3/rectangle');
+var voronoiModule = require('./nodename/delaunay/voronoi');
+
+// Make a new map.
+// size: width and height of map
+var mapModule = function (size) {
+    var pub = {};
+
+    // Passed in by the caller:
+    pub.SIZE = size;
+
+    // Island shape is controlled by the islandRandom seed and the
+    // type of island, passed in when we set the island shape. The
+    // islandShape function uses both of them to determine whether any
+    // point should be water or land.
+    pub.islandShape = null;
+
+    // Island details are controlled by this random generator. The initial map
+    // upon loading is always deterministic, but subsequent maps reset this
+    // random number generator with a random seed.
+    pub.mapRandom = prng();
+    pub.needsMoreRandomness; // see comment in point-selector.js
+
+    // These store the graph data
+    
+    // Only useful during map construction
+    pub.points = []; // Vector<Point>
+    pub.centers = []; // Vector<Center>
+    pub.corners = []; // Vector<Corner>
+    pub.edges = []; // Vector<Edge>
+
+
+    // Random parameters governing the overall shape of the island
+    pub.newIsland = function (islandShape, variant) {
+        pub.islandShape = islandShape;
+        pub.mapRandom.seed = variant;
+    };
+
+    // Generate the initial random set of points.
+    pub.go0PlacePoints = function (numberOfPoints, pointSelector) {
+        pub.needsMoreRandomness = pointSelectorModule.needsMoreRandomness(pointSelector);
+        numberOfPoints = core.def(numberOfPoints, mapModule.DEFAULT_NUMBER_OF_POINTS);
+        pub.reset();
+        pub.points = pointSelector(numberOfPoints);
+    };
+
+    // Create a graph structure from the Voronoi edge list. The
+    // methods in the Voronoi object are somewhat inconvenient for
+    // my needs, so I transform that data into the data I actually
+    // need: edges connected to the Delaunay triangles and the
+    // Voronoi polygons, a reverse map from those four points back
+    // to the edge, a map from these four points to the points
+    // they connect to (both along the edge and crosswise).
+    pub.go1BuildGraph = function () {
+        var voronoi = voronoiModule.make(pub.points, null, rectangle(0, 0, pub.SIZE.width, pub.SIZE.height));
+        pub.buildGraph(pub.points, voronoi);
+        pub.improveCorners();
+        voronoi.dispose();
+        voronoi = null;
+        pub.points = null;
+    };
+
+    // lakeThreshold: 0 to 1, fraction of water corners for water polygon, default = 0.3
+    pub.go2AssignElevations = function (lakeThreshold) {
+        lakeThreshold = core.def(lakeThreshold, mapModule.DEFAULT_LAKE_THRESHOLD);
+
+        // Determine the elevations and water at Voronoi corners.
+        pub.assignCornerElevations();
+
+        // Determine polygon and corner type: ocean, coast, land.
+        pub.assignOceanCoastAndLand(lakeThreshold);
+
+        // Rescale elevations so that the highest is 1.0, and they're
+        // distributed well. We want lower elevations to be more common
+        // than higher elevations, in proportions approximately matching
+        // concentric rings. That is, the lowest elevation is the
+        // largest ring around the island, and therefore should more
+        // land area than the highest elevation, which is the very
+        // center of a perfectly circular island.
+        pub.redistributeElevations(pub.landCorners(pub.corners));
+
+        // Assign elevations to non-land corners
+        _(pub.corners).each(function (q) {
+            if (q.ocean || q.coast) {
+                q.elevation = 0.0;
+            }
+        });
+
+        // Polygon elevations are the average of their corners
+        pub.assignPolygonElevations();
+    };
+
+    // riverChance: 0 = no rivers, > 0 = more rivers, default = map area / 4
+    pub.go3AssignMoisture = function (riverChance) {
+        riverChance = core.def(riverChance, null);
+
+        // Determine downslope paths.
+        pub.calculateDownslopes();
+
+        // Determine watersheds: for every corner, where does it flow
+        // out into the ocean? 
+        pub.calculateWatersheds();
+
+        // Create rivers.
+        pub.createRivers(riverChance);
+
+        // Determine moisture at corners, starting at rivers
+        // and lakes, but not oceans. Then redistribute
+        // moisture to cover the entire range evenly from 0.0
+        // to 1.0. Then assign polygon moisture as the average
+        // of the corner moisture.
+        pub.assignCornerMoisture();
+        pub.redistributeMoisture(pub.landCorners(pub.corners));
+        pub.assignPolygonMoisture();
+    };
+
+    pub.go4DecorateMap = function () {
+        pub.assignBiomes();
+    };
+
+    pub.reset = function () {
+        // Break cycles so the garbage collector will release data.
+        if (pub.points !== null) {
+            pub.points.splice(0, pub.points.length);
+        }
+        if (pub.edges !== null) {
+            _(pub.edges).each(function (edge) {
+                edge.d0 = edge.d1 = null;
+                edge.v0 = edge.v1 = null;
+            });
+            pub.edges.splice(0, pub.edges.length);
+        }
+        if (pub.centers !== null) {
+            _(pub.centers).each(function (p) {
+                p.neighbors.splice(0, p.neighbors.length);
+                p.corners.splice(0, p.corners.length);
+                p.borders.splice(0, p.borders.length);
+            });
+            pub.centers.splice(0, pub.centers.length);
+        }
+        if (pub.corners !== null) {
+            _(pub.corners).each(function (q) {
+                q.adjacent.splice(0, q.adjacent.length);
+                q.touches.splice(0, q.touches.length);
+                q.protrudes.splice(0, q.protrudes.length);
+                q.downslope = null;
+                q.watershed = null;
+            });
+            pub.corners.splice(0, pub.corners.length);
+        }
+        // Clear the previous graph data.
+        if (pub.points === null) { pub.points = []; }
+        if (pub.edges === null) { pub.edges = []; }
+        if (pub.centers === null) { pub.centers = []; }
+        if (pub.corners === null) { pub.corners = []; }
+      
+        // Disabled for JavaScript
+        //System.gc();
+    };
+
+    // Although Lloyd relaxation improves the uniformity of polygon
+    // sizes, it doesn't help with the edge lengths. Short edges can
+    // be bad for some games, and lead to weird artifacts on
+    // rivers. We can easily lengthen short edges by moving the
+    // corners, but **we lose the Voronoi property**.  The corners are
+    // moved to the average of the polygon centers around them. Short
+    // edges become longer. Long edges tend to become shorter. The
+    // polygons tend to be more uniform after this step.
+    pub.improveCorners = function () {
+        var newCorners = []; // Vector<Point>
+        var point, i;
+
+        // First we compute the average of the centers next to each corner.
+        _(pub.corners).each(function (q) {
+            if (q.border) {
+                newCorners[q.index] = q.point;
+            } else {
+                point = {x: 0.0, y: 0.0};
+                _(q.touches).each(function (r) {
+                    point.x += r.point.x;
+                    point.y += r.point.y;
+                });
+                point.x /= q.touches.length;
+                point.y /= q.touches.length;
+                newCorners[q.index] = point;
+            }
+        });
+
+        // Move the corners to the new locations.
+        for (i = 0; i < pub.corners.length; i++) {
+            pub.corners[i].point = newCorners[i];
+        }
+
+        // The edge midpoints were computed for the old corners and need
+        // to be recomputed.
+        _(pub.edges).each(function (edge) {
+            if (edge.v0 !== null && edge.v1 !== null) {
+                edge.midpoint = pc.interpolate(edge.v0.point, edge.v1.point, 0.5);
+            }
+        });
+    };
+
+    // Create an array of corners that are on land only, for use by
+    // algorithms that work only on land.  We return an array instead
+    // of a vector because the redistribution algorithms want to sort
+    // this array using Array.sortOn.
+    pub.landCorners = function (corners) {
+        var locations = [];
+        _(corners).each(function (q) {
+            if (!q.ocean && !q.coast) {
+                locations.push(q);
+            }
+        });
+        return locations;
+    };
+
+    // Build graph data structure in 'edges', 'centers', 'corners',
+    // based on information in the Voronoi results: point.neighbors
+    // will be a list of neighboring points of the same type (corner
+    // or center); point.edges will be a list of edges that include
+    // that point. Each edge connects to four points: the Voronoi edge
+    // edge.{v0,v1} and its dual Delaunay triangle edge edge.{d0,d1}.
+    // For boundary polygons, the Delaunay edge will have one null
+    // point, and the Voronoi edge may be null.
+    pub.buildGraph = function (points, voronoi) {
+        var p;
+        var libedges = voronoi.edges();
+        var centerLookup = {}; // Dictionary<Center>
+
+        // Build Center objects for each of the points, and a lookup map
+        // to find those Center objects again as we build the graph
+        _(points).each(function (point) {
+            p = centerModule();
+            p.index = pub.centers.length;
+            p.point = point;
+            p.neighbors = [];
+            p.borders = [];
+            p.corners = [];
+            pub.centers.push(p);
+            centerLookup[pc.hash(point)] = p;
+        });
+
+        // Workaround for Voronoi lib bug: we need to call region()
+        // before Edges or neighboringSites are available
+        _(pub.centers).each(function (p) {
+            voronoi.region(p.point);
+        });
+      
+        // The Voronoi library generates multiple Point objects for
+        // corners, and we need to canonicalize to one Corner object.
+        // To make lookup fast, we keep an array of Points, bucketed by
+        // x value, and then we only have to look at other Points in
+        // nearby buckets. When we fail to find one, we'll create a new
+        // Corner object.
+        var _cornerMap = [];
+        function makeCorner(point) {
+            var q;
+            if (point === null) { return null; }
+            var bucket;
+            for (bucket = core.toInt(point.x) - 1; bucket < core.toInt(point.x) + 2; bucket++) {
+                if (!core.isUndefinedOrNull(_cornerMap[bucket])) {
+                    for (var z = 0; z < _cornerMap[bucket].length; z++) {
+                        q = _cornerMap[bucket][z];
+                        var dx = point.x - q.point.x;
+                        var dy = point.y - q.point.y;
+                        if (dx * dx + dy * dy < 1e-6) {
+                            return q;
+                        }
+                    }
+                }
+            }
+            bucket = core.toInt(point.x);
+            if (core.isUndefinedOrNull(_cornerMap[bucket])) { _cornerMap[bucket] = []; }
+            q = cornerModule();
+            q.index = pub.corners.length;
+            pub.corners.push(q);
+            q.point = point;
+            q.border = (point.x === 0 || point.x === pub.SIZE.width || point.y === 0 || point.y === pub.SIZE.height);
+            q.touches = [];
+            q.protrudes = [];
+            q.adjacent = [];
+            _cornerMap[bucket].push(q);
+            return q;
+        }
+
+        // Helper functions for the following for loop; ideally these
+        // would be inlined
+        function addToCornerList(v, x) {
+            if (x !== null && v.indexOf(x) < 0) { v.push(x); }
+        }
+
+        function addToCenterList(v, x) {
+            if (x !== null && v.indexOf(x) < 0) { v.push(x); }
+        }
+
+        _(libedges).each(function (libedge) {
+            var dedge = libedge.delaunayLine();
+            var vedge = libedge.voronoiEdge();
+
+            // Fill the graph data. Make an Edge object corresponding to
+            // the edge from the voronoi library.
+            var edge = edgeModule();
+            edge.index = pub.edges.length;
+            edge.river = 0;
+            pub.edges.push(edge);
+            edge.midpoint = (vedge.p0 !== null && vedge.p1 !== null) ? pc.interpolate(vedge.p0, vedge.p1, 0.5) : null;
+          
+            // Edges point to corners. Edges point to centers. 
+            edge.v0 = makeCorner(vedge.p0);
+            edge.v1 = makeCorner(vedge.p1);
+            edge.d0 = centerLookup[pc.hash(dedge.p0)];
+            edge.d1 = centerLookup[pc.hash(dedge.p1)];
+
+            // Centers point to edges. Corners point to edges.
+            if (edge.d0 !== null) { edge.d0.borders.push(edge); }
+            if (edge.d1 !== null) { edge.d1.borders.push(edge); }
+            if (edge.v0 !== null) { edge.v0.protrudes.push(edge); }
+            if (edge.v1 !== null) { edge.v1.protrudes.push(edge); }
+          
+            // Centers point to centers.
+            if (edge.d0 !== null && edge.d1 !== null) {
+                addToCenterList(edge.d0.neighbors, edge.d1);
+                addToCenterList(edge.d1.neighbors, edge.d0);
+            }
+
+            // Corners point to corners
+            if (edge.v0 !== null && edge.v1 !== null) {
+                addToCornerList(edge.v0.adjacent, edge.v1);
+                addToCornerList(edge.v1.adjacent, edge.v0);
+            }
+
+            // Centers point to corners
+            if (edge.d0 !== null) {
+                addToCornerList(edge.d0.corners, edge.v0);
+                addToCornerList(edge.d0.corners, edge.v1);
+            }
+            if (edge.d1 !== null) {
+                addToCornerList(edge.d1.corners, edge.v0);
+                addToCornerList(edge.d1.corners, edge.v1);
+            }
+
+            // Corners point to centers
+            if (edge.v0 !== null) {
+                addToCenterList(edge.v0.touches, edge.d0);
+                addToCenterList(edge.v0.touches, edge.d1);
+            }
+            if (edge.v1 !== null) {
+                addToCenterList(edge.v1.touches, edge.d0);
+                addToCenterList(edge.v1.touches, edge.d1);
+            }
+        });
+    };
+
+    // Determine elevations and water at Voronoi corners. By
+    // construction, we have no local minima. This is important for
+    // the downslope vectors later, which are used in the river
+    // construction algorithm. Also by construction, inlets/bays
+    // push low elevation areas inland, which means many rivers end
+    // up flowing out through them. Also by construction, lakes
+    // often end up on river paths because they don't raise the
+    // elevation as much as other terrain does.
+    pub.assignCornerElevations = function () {
+        var queue = []; // Array<Corner>
+      
+        _(pub.corners).each(function (q) {
+            q.water = !pub.inside(q.point);
+        });
+
+        _(pub.corners).each(function (q) {
+            // The edges of the map are elevation 0
+            if (q.border) {
+                q.elevation = 0.0;
+                queue.push(q);
+            } else {
+                q.elevation = Number.POSITIVE_INFINITY;
+            }
+        });
+        // Traverse the graph and assign elevations to each point. As we
+        // move away from the map border, increase the elevations. This
+        // guarantees that rivers always have a way down to the coast by
+        // going downhill (no local minima).
+        while (queue.length > 0) {
+            var q = queue.shift();
+            for (var adjacentIndex = 0; adjacentIndex < q.adjacent.length; adjacentIndex++) {
+                var s = q.adjacent[adjacentIndex];
+
+                // Every step up is epsilon over water or 1 over land. The
+                // number doesn't matter because we'll rescale the
+                // elevations later.
+                var newElevation = 0.01 + q.elevation;
+                if (!q.water && !s.water) {
+                    newElevation += 1;
+                    if (pub.needsMoreRandomness) {
+                        // HACK: the map looks nice because of randomness of
+                        // points, randomness of rivers, and randomness of
+                        // edges. Without random point selection, I needed to
+                        // inject some more randomness to make maps look
+                        // nicer. I'm doing it here, with elevations, but I
+                        // think there must be a better way. This hack is only
+                        // used with square/hexagon grids.
+                        newElevation += pub.mapRandom.nextDouble();
+                    }
+
+                }
+
+                // If this point changed, we'll add it to the queue so
+                // that we can process its neighbors too.
+                if (newElevation < s.elevation) {
+                    s.elevation = newElevation;
+                    queue.push(s);
+                }
+            }
+        }
+    };
+
+    // Change the overall distribution of elevations so that lower
+    // elevations are more common than higher
+    // elevations. Specifically, we want elevation X to have frequency
+    // (1-X).  To do this we will sort the corners, then set each
+    // corner to its desired elevation.
+    pub.redistributeElevations = function (locations) {
+        // SCALE_FACTOR increases the mountain area. At 1.0 the maximum
+        // elevation barely shows up on the map, so we set it to 1.1.
+        var SCALE_FACTOR = 1.1;
+        var i, y, x;
+
+        //JavaScript port
+        //locations.sortOn('elevation', Array.NUMERIC);
+        locations.sort(function (c1, c2) {
+            if (c1.elevation > c2.elevation) { return 1; }
+            if (c1.elevation < c2.elevation) { return -1; }
+            if (c1.index > c2.index) { return 1; }
+            if (c1.index < c2.index) { return -1; }
+            return 0;
+        });
+      
+        for (i = 0; i < locations.length; i++) {
+            // Let y(x) be the total area that we want at elevation <= x.
+            // We want the higher elevations to occur less than lower
+            // ones, and set the area to be y(x) = 1 - (1-x)^2.
+            y = i / (locations.length - 1);
+            // Now we have to solve for x, given the known y.
+            //  *  y = 1 - (1-x)^2
+            //  *  y = 1 - (1 - 2x + x^2)
+            //  *  y = 2x - x^2
+            //  *  x^2 - 2x + y = 0
+            // From this we can use the quadratic equation to get:
+            x = Math.sqrt(SCALE_FACTOR) - Math.sqrt(SCALE_FACTOR * (1 - y));
+            if (x > 1.0) { x = 1.0; }  // TODO: does this break downslopes?
+            locations[i].elevation = x;
+        }
+    };
+
+    // Change the overall distribution of moisture to be evenly distributed.
+    pub.redistributeMoisture = function (locations) {
+        var i;
+      
+        locations.sort(function (c1, c2) {
+            if (c1.moisture > c2.moisture) { return 1; }
+            if (c1.moisture < c2.moisture) { return -1; }
+            if (c1.index > c2.index) { return 1; }
+            if (c1.index < c2.index) { return -1; }
+            return 0;
+        });
+      
+        for (i = 0; i < locations.length; i++) {
+            locations[i].moisture = i / (locations.length - 1);
+        }
+    };
+
+    // Determine polygon and corner types: ocean, coast, land.
+    pub.assignOceanCoastAndLand = function (lakeThreshold) {
+        // Compute polygon attributes 'ocean' and 'water' based on the
+        // corner attributes. Count the water corners per
+        // polygon. Oceans are all polygons connected to the edge of the
+        // map. In the first pass, mark the edges of the map as ocean;
+        // in the second pass, mark any water-containing polygon
+        // connected an ocean as ocean.
+        var queue = []; // Array<Center>
+        var p, numWater;
+      
+        _(pub.centers).each(function (p) {
+            numWater = 0;
+            _(p.corners).each(function (q) {
+                if (q.border) {
+                    p.border = true;
+                    p.ocean = true;
+                    q.water = true;
+                    queue.push(p);
+                }
+                if (q.water) {
+                    numWater += 1;
+                }
+            });
+            p.water = (p.ocean || numWater >= p.corners.length * lakeThreshold);
+        });
+        while (queue.length > 0) {
+            p = queue.shift();
+            for (var neighbourIndex = 0; neighbourIndex < p.neighbors.length; neighbourIndex++) {
+                var r = p.neighbors[neighbourIndex];
+                if (r.water && !r.ocean) {
+                    r.ocean = true;
+                    queue.push(r);
+                }
+            }
+        }
+      
+        // Set the polygon attribute 'coast' based on its neighbors. If
+        // it has at least one ocean and at least one land neighbor,
+        // then this is a coastal polygon.
+        _(pub.centers).each(function (p) {
+            var numOcean = 0;
+            var numLand = 0;
+            _(p.neighbors).each(function (r) {
+                numOcean += convert.intFromBoolean(r.ocean);
+                numLand += convert.intFromBoolean(!r.water);
+            });
+            p.coast = (numOcean > 0) && (numLand > 0);
+        });
+
+
+        // Set the corner attributes based on the computed polygon
+        // attributes. If all polygons connected to this corner are
+        // ocean, then it's ocean; if all are land, then it's land;
+        // otherwise it's coast.
+        _(pub.corners).each(function (q) {
+            var numOcean = 0;
+            var numLand = 0;
+            _(q.touches).each(function (p) {
+                numOcean += convert.intFromBoolean(p.ocean);
+                numLand += convert.intFromBoolean(!p.water);
+            });
+            q.ocean = (numOcean === q.touches.length);
+            q.coast = (numOcean > 0) && (numLand > 0);
+            q.water = q.border || ((numLand !== q.touches.length) && !q.coast);
+        });
+    };
+
+    // Polygon elevations are the average of the elevations of their corners.
+    pub.assignPolygonElevations = function () {
+        var sumElevation;
+        _(pub.centers).each(function (p) {
+            sumElevation = 0.0;
+            _(p.corners).each(function (q) {
+                sumElevation += q.elevation;
+            });
+            p.elevation = sumElevation / p.corners.length;
+        });
+    };
+
+    // Calculate downslope pointers.  At every point, we point to the
+    // point downstream from it, or to itself.  This is used for
+    // generating rivers and watersheds.
+    pub.calculateDownslopes = function () {
+        var r;
+      
+        _(pub.corners).each(function (q) {
+            r = q;
+            _(q.adjacent).each(function (s) {
+                if (s.elevation <= r.elevation) {
+                    r = s;
+                }
+            });
+            q.downslope = r;
+        });
+    };
+
+    // Calculate the watershed of every land point. The watershed is
+    // the last downstream land point in the downslope graph. TODO:
+    // watersheds are currently calculated on corners, but it'd be
+    // more useful to compute them on polygon centers so that every
+    // polygon can be marked as being in one watershed.
+    pub.calculateWatersheds = function () {
+        var r, i, changed;
+      
+        // Initially the watershed pointer points downslope one step.      
+        _(pub.corners).each(function (q) {
+            q.watershed = q;
+            if (!q.ocean && !q.coast) {
+                q.watershed = q.downslope;
+            }
+        });
+        // Follow the downslope pointers to the coast. Limit to 100
+        // iterations although most of the time with numPoints==2000 it
+        // only takes 20 iterations because most points are not far from
+        // a coast.  TODO: can run faster by looking at
+        // p.watershed.watershed instead of p.downslope.watershed.
+        var cornerIndex, q;
+        for (i = 0; i < 100; i++) {
+            changed = false;
+            for (cornerIndex = 0; cornerIndex < pub.corners.length; cornerIndex++) {
+                q = pub.corners[cornerIndex];
+                if (!q.ocean && !q.coast && !q.watershed.coast) {
+                    r = q.downslope.watershed;
+                    if (!r.ocean) { q.watershed = r; }
+                    changed = true;
+                }
+            }
+            if (!changed) { break; }
+        }
+        // How big is each watershed?
+        for (cornerIndex = 0; cornerIndex < pub.corners.length; cornerIndex++) {
+            q = pub.corners[cornerIndex];
+            r = q.watershed;
+            r.watershedSize = 1 + (r.watershedSize || 0);
+        }
+    };
+
+    // Create rivers along edges. Pick a random corner point,
+    // then move downslope. Mark the edges and corners as rivers.
+    // riverChance: Higher = more rivers.
+    pub.createRivers = function (riverChance) {
+        riverChance = core.coalesce(riverChance, core.toInt((pub.SIZE.width + pub.SIZE.height) / 4));
+
+        var i, q, edge;
+      
+        for (i = 0; i < riverChance; i++) {
+            q = pub.corners[pub.mapRandom.nextIntRange(0, pub.corners.length - 1)];
+            if (q.ocean || q.elevation < 0.3 || q.elevation > 0.9) { continue; }
+            // Bias rivers to go west: if (q.downslope.x > q.x) continue;
+            while (!q.coast) {
+                if (q === q.downslope) {
+                    break;
+                }
+                edge = pub.lookupEdgeFromCorner(q, q.downslope);
+                edge.river = edge.river + 1;
+                q.river = (q.river || 0) + 1;
+                q.downslope.river = (q.downslope.river || 0) + 1;  // TODO: fix double count
+                q = q.downslope;
+            }
+        }
+    };
+
+    // Calculate moisture. Freshwater sources spread moisture: rivers
+    // and lakes (not oceans). Saltwater sources have moisture but do
+    // not spread it (we set it at the end, after propagation).
+    pub.assignCornerMoisture = function () {
+        var q, newMoisture;
+        var queue = []; // Array<Corner>
+        // Fresh water
+        _(pub.corners).each(function (q) {
+            if ((q.water || q.river > 0) && !q.ocean) {
+                q.moisture = q.river > 0 ? Math.min(3.0, (0.2 * q.river)) : 1.0;
+                queue.push(q);
+            } else {
+                q.moisture = 0.0;
+            }
+        });
+        while (queue.length > 0) {
+            q = queue.shift();
+
+            for (var adjacentIndex = 0; adjacentIndex < q.adjacent.length; adjacentIndex++) {
+                var r = q.adjacent[adjacentIndex];
+                newMoisture = q.moisture * 0.9;
+                if (newMoisture > r.moisture) {
+                    r.moisture = newMoisture;
+                    queue.push(r);
+                }
+            }
+        }
+        // Salt water
+        _(pub.corners).each(function (q) {
+            if (q.ocean || q.coast) {
+                q.moisture = 1.0;
+            }
+        });
+    };
+
+    // Polygon moisture is the average of the moisture at corners
+    pub.assignPolygonMoisture = function () {
+        var sumMoisture;
+        _(pub.centers).each(function (p) {
+            sumMoisture = 0.0;
+            _(p.corners).each(function (q) {
+                if (q.moisture > 1.0) { q.moisture = 1.0; }
+                sumMoisture += q.moisture;
+            });
+            p.moisture = sumMoisture / p.corners.length;
+        });
+    };
+
+    pub.assignBiomes = function () {
+        _(pub.centers).each(function (p) {
+            p.biome = mapModule.getBiome(p);
+        });
+    };
+
+    // Look up a Voronoi Edge object given two adjacent Voronoi
+    // polygons, or two adjacent Voronoi corners
+    pub.lookupEdgeFromCenter = function (p, r) {
+        for (var i = 0; i < p.borders.length; i++) {
+            var edge = p.borders[i];
+            if (edge.d0 === r || edge.d1 === r) { return edge; }
+        }
+        return null;
+    };
+
+    pub.lookupEdgeFromCorner = function (q, s) {
+        for (var i = 0; i < q.protrudes.length; i++) {
+            var edge = q.protrudes[i];
+            if (edge.v0 === s || edge.v1 === s) { return edge; }
+        }
+        return null;
+    };
+
+    // Determine whether a given point should be on the island or in the water.
+    pub.inside = function (p) {
+        return pub.islandShape({ x: 2 * (p.x / pub.SIZE.width - 0.5), y: 2 * (p.y / pub.SIZE.height - 0.5) });
+    };
+
+    pub.reset();
+
+    return pub;
+};
+
+mapModule.DEFAULT_LAKE_THRESHOLD = 0.3;
+mapModule.DEFAULT_LLOYD_ITERATIONS = 2;
+mapModule.DEFAULT_NUMBER_OF_POINTS = 1000;
+
+// Assign a biome type to each polygon. If it has
+// ocean/coast/water, then that's the biome; otherwise it depends
+// on low/high elevation and low/medium/high moisture. This is
+// roughly based on the Whittaker diagram but adapted to fit the
+// needs of the island map generator.
+mapModule.getBiome = function (p) {
+    if (p.ocean) {
+        return 'OCEAN';
+    } else if (p.water) {
+        if (p.elevation < 0.1) { return 'MARSH'; }
+        if (p.elevation > 0.8) { return 'ICE'; }
+        return 'LAKE';
+    } else if (p.coast) {
+        return 'BEACH';
+    } else if (p.elevation > 0.8) {
+        if (p.moisture > 0.50) { return 'SNOW'; }
+        else if (p.moisture > 0.33) { return 'TUNDRA'; }
+        else if (p.moisture > 0.16) { return 'BARE'; }
+        else { return 'SCORCHED'; }
+    } else if (p.elevation > 0.6) {
+        if (p.moisture > 0.66) { return 'TAIGA'; }
+        else if (p.moisture > 0.33) { return 'SHRUBLAND'; }
+        else { return 'TEMPERATE_DESERT'; }
+    } else if (p.elevation > 0.3) {
+        if (p.moisture > 0.83) { return 'TEMPERATE_RAIN_FOREST'; }
+        else if (p.moisture > 0.50) { return 'TEMPERATE_DECIDUOUS_FOREST'; }
+        else if (p.moisture > 0.16) { return 'GRASSLAND'; }
+        else { return 'TEMPERATE_DESERT'; }
+    } else {
+        if (p.moisture > 0.66) { return 'TROPICAL_RAIN_FOREST'; }
+        else if (p.moisture > 0.33) { return 'TROPICAL_SEASONAL_FOREST'; }
+        else if (p.moisture > 0.16) { return 'GRASSLAND'; }
+        else { return 'SUBTROPICAL_DESERT'; }
+    }
+};
+
+module.exports = mapModule;
+},{"./as3/conversion-core":8,"./as3/point-core":10,"./as3/rectangle":11,"./graph/center":13,"./graph/corner":14,"./graph/edge":15,"./janicek/core":19,"./nodename/delaunay/voronoi":42,"./point-selector":48,"./polygonal/pm-prng":49,"lodash":1}],28:[function(require,module,exports){
 /* jshint bitwise: false */
 
 'use strict';
@@ -7589,14 +10029,14 @@ module.exports = {
         return value;
     }
 };
-},{"../../as3/rectangle":5}],15:[function(require,module,exports){
+},{"../../as3/rectangle":11}],29:[function(require,module,exports){
 'use strict';
 
 module.exports = {
     vertex: 'vertex',
     site: 'site'
 };
-},{}],16:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 'use strict';
 
 var _ = require('lodash');
@@ -7649,7 +10089,7 @@ module.exports = {
     }
 
 };
-},{"../geom/line-segment":30,"./lr":23,"lodash":1}],17:[function(require,module,exports){
+},{"../geom/line-segment":44,"./lr":37,"lodash":1}],31:[function(require,module,exports){
 /* jshint bitwise:false */
 
 'use strict';
@@ -7816,7 +10256,7 @@ module.exports = function (xmin, deltax, sqrtNsites) {
 
     return pub;
 };
-},{"./edge":19,"./halfedge":21}],18:[function(require,module,exports){
+},{"./edge":33,"./halfedge":35}],32:[function(require,module,exports){
 'use strict';
 
 var criterionModule = require('./criterion');
@@ -7932,7 +10372,7 @@ EdgeReorderer.prototype = {
 module.exports = function (origEdges, criterion) {
     return new EdgeReorderer(origEdges, criterion);
 };
-},{"./criterion":15,"./lr":23,"./vertex":27}],19:[function(require,module,exports){
+},{"./criterion":29,"./lr":37,"./vertex":41}],33:[function(require,module,exports){
 /* jshint es3:false */
 
 'use strict';
@@ -8273,7 +10713,7 @@ exports.compareSitesDistancesMax = function (edge0, edge1) {
 exports.compareSitesDistances = function (edge0, edge1) {
     return - exports.compareSitesDistancesMax(edge0, edge1);
 };
-},{"../../as3/point-core":4,"../../as3/rectangle":5,"../geom/line-segment":30,"./lr":23}],20:[function(require,module,exports){
+},{"../../as3/point-core":10,"../../as3/rectangle":11,"../geom/line-segment":44,"./lr":37}],34:[function(require,module,exports){
 /* jshint bitwise:false */
 
 'use strict';
@@ -8414,7 +10854,7 @@ module.exports = function (ymin, deltay, sqrtNsites) {
 
     return pub;
 };
-},{"../../janicek/core":9,"./halfedge":21}],21:[function(require,module,exports){
+},{"../../janicek/core":19,"./halfedge":35}],35:[function(require,module,exports){
 'use strict';
 
 var def = require('../../janicek/core').def;
@@ -8539,7 +10979,7 @@ exports.create = function (edge, lr) {
 exports.createDummy = function () {
     return exports.create(null, null);
 };
-},{"../../janicek/core":9,"./lr":23}],22:[function(require,module,exports){
+},{"../../janicek/core":19,"./lr":37}],36:[function(require,module,exports){
 /* jshint camelcase:false */
 
 'use strict';
@@ -8639,7 +11079,7 @@ exports.kruskal = function (lineSegments, type) {
     
     return mst;
 };
-},{"../../as3/point-core":4,"../../janicek/core":9,"../geom/line-segment":30,"./node":24,"lodash":1}],23:[function(require,module,exports){
+},{"../../as3/point-core":10,"../../janicek/core":19,"../geom/line-segment":44,"./node":38,"lodash":1}],37:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -8650,7 +11090,7 @@ module.exports = {
         return leftRight === this.LEFT ? this.RIGHT : this.LEFT;
     }
 };
-},{}],24:[function(require,module,exports){
+},{}],38:[function(require,module,exports){
 'use strict';
 
 module.exports = function () {
@@ -8661,7 +11101,7 @@ module.exports = function () {
 };
 
 module.exports.pool = [];
-},{}],25:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 'use strict';
 
 var _ = require('lodash');
@@ -8797,7 +11237,7 @@ module.exports = function () {
 
     return pub;
 };
-},{"../../as3/rectangle":5,"../../janicek/core":9,"../geom/circle":29,"./site":26,"lodash":1}],26:[function(require,module,exports){
+},{"../../as3/rectangle":11,"../../janicek/core":19,"../geom/circle":43,"./site":40,"lodash":1}],40:[function(require,module,exports){
 /* jshint bitwise:false, es3:false */
 
 'use strict';
@@ -9097,7 +11537,7 @@ exports.sortSites = function (sites) {
         sites[i]._siteIndex = i;
     });
 };
-},{"../../as3/point-core":4,"../../as3/rectangle":5,"../../janicek/core":9,"../geom/polygon":31,"../geom/winding":32,"./bounds-check":14,"./criterion":15,"./edge":19,"./edge-reorderer":18,"./lr":23,"./voronoi":28,"lodash":1}],27:[function(require,module,exports){
+},{"../../as3/point-core":10,"../../as3/rectangle":11,"../../janicek/core":19,"../geom/polygon":45,"../geom/winding":46,"./bounds-check":28,"./criterion":29,"./edge":33,"./edge-reorderer":32,"./lr":37,"./voronoi":42,"lodash":1}],41:[function(require,module,exports){
 /* jshint es3:false */
 
 'use strict';
@@ -9207,7 +11647,7 @@ exports.intersect = function (halfedge0, halfedge1) {
     }
     return create(intersectionX, intersectionY);
 };
-},{"./lr":23,"./voronoi":28}],28:[function(require,module,exports){
+},{"./lr":37,"./voronoi":42}],42:[function(require,module,exports){
 'use strict';
 
 var _ = require('lodash');
@@ -9598,7 +12038,7 @@ exports.compareByYThenX = function (s1x, s1y, s2x, s2y) {
     if (s1x > s2x) { return 1; }
     return 0;
 };
-},{"../../as3/point-core":4,"../../janicek/core":9,"../../polygonal/pm-prng":33,"./criterion":15,"./delaunay":16,"./edge":19,"./edge-list":17,"./edge-reorderer":18,"./halfedge":21,"./halfedge-priority-queue":20,"./kruskal":22,"./lr":23,"./site":26,"./site-list":25,"./vertex":27,"lodash":1}],29:[function(require,module,exports){
+},{"../../as3/point-core":10,"../../janicek/core":19,"../../polygonal/pm-prng":49,"./criterion":29,"./delaunay":30,"./edge":33,"./edge-list":31,"./edge-reorderer":32,"./halfedge":35,"./halfedge-priority-queue":34,"./kruskal":36,"./lr":37,"./site":40,"./site-list":39,"./vertex":41,"lodash":1}],43:[function(require,module,exports){
 'use strict';
 
 module.exports = function (centerX, centerY, radius) {
@@ -9610,7 +12050,7 @@ module.exports = function (centerX, centerY, radius) {
         }
     };
 };
-},{}],30:[function(require,module,exports){
+},{}],44:[function(require,module,exports){
 'use strict';
 
 var pointCore = require('../../as3/point-core');
@@ -9639,7 +12079,7 @@ module.exports.core = {
         return - this.compareLengthsMax(edge0, edge1);
     }
 };
-},{"../../as3/point-core":4}],31:[function(require,module,exports){
+},{"../../as3/point-core":10}],45:[function(require,module,exports){
 'use strict';
 
 var winding = require('./winding');
@@ -9682,7 +12122,7 @@ Polygon.prototype = {
 module.exports = function (vertices) {
     return new Polygon(vertices);
 };
-},{"./winding":32}],32:[function(require,module,exports){
+},{"./winding":46}],46:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -9690,1706 +12130,19 @@ module.exports = {
     COUNTERCLOCKWISE: 'counterclockwise',
     NONE: 'none'
 };
-},{}],33:[function(require,module,exports){
-'use strict';
-
-module.exports = function () {
-
-    return {
-
-        /**
-         * set seed with a 31 bit unsigned integer
-         * between 1 and 0X7FFFFFFE inclusive. don't use 0!
-         */
-        seed: 1,
-
-        /**
-         * provides the next pseudorandom number
-         * as a float between nearly 0 and nearly 1.0.
-         */
-        nextDouble: function () {
-            return (this.gen() / 2147483647);
-        },
-
-        /**
-         * provides the next pseudorandom number
-         * as an unsigned integer (31 bits) betweeen
-         * a given range.
-         */
-        nextIntRange: function (min, max) {
-            min -= 0.4999;
-            max += 0.4999;
-            return Math.round(min + ((max - min) * this.nextDouble()));
-        },
-
-        /**
-         * provides the next pseudorandom number
-         * as a float between a given range.
-         */
-        nextDoubleRange: function (min, max) {
-            return min + ((max - min) * this.nextDouble());
-        },
-
-        /**
-         * generator:
-         * new-value = (old-value * 16807) mod (2^31 - 1)
-         */
-        gen: function () {
-            //integer version 1, for max int 2^46 - 1 or larger.
-            this.seed = (this.seed * 16807) % 2147483647;
-            return this.seed;
-            
-            /**
-             * integer version 2, for max int 2^31 - 1 (slowest)
-             */
-            //var test:int = 16807 * (seed % 127773 >> 0) - 2836 * (seed / 127773 >> 0);
-            //return seed = (test > 0 ? test : test + 2147483647);
-            
-            /**
-             * david g. carta's optimisation is 15% slower than integer version 1
-             */
-            //var hi:uint = 16807 * (seed >> 16);
-            //var lo:uint = 16807 * (seed & 0xFFFF) + ((hi & 0x7FFF) << 16) + (hi >> 15);
-            //return seed = (lo > 0x7FFFFFFF ? lo - 0x7FFFFFFF : lo);
-        }
-    };
-};
-},{}],34:[function(require,module,exports){
-'use strict';
-
-var _ = require('lodash');
-var colorModule = require('../janicek/html-color');
-var convert = require('../as3/conversion-core');
-var core = require('../janicek/core');
-var matrix = require('../as3/matrix');
-var pointCore = require('../as3/point-core');
-var vector3d = require('../as3/vector-3d');
-
-exports.graphicsReset = function (c, mapWidth, mapHeight, displayColors) {
-    c.lineWidth = 1.0;
-    c.clearRect(0, 0, 2000, 2000);
-    c.fillStyle = '#bbbbaa';
-    c.fillRect(0, 0, 2000, 2000);
-    c.fillStyle = colorModule.intToHexColor(displayColors.OCEAN);
-    c.fillRect(0, 0, core.toInt(mapWidth), core.toInt(mapHeight));
-};
-
-var lightVector = vector3d(-1, -1, 0);
-
-exports.calculateLighting = function (p, r, s) {
-    var A = vector3d(p.point.x, p.point.y, p.elevation);
-    var B = vector3d(r.point.x, r.point.y, r.elevation);
-    var C = vector3d(s.point.x, s.point.y, s.elevation);
-    var normal = B.subtract(A).crossProduct(C.subtract(A));
-    if (normal.z < 0) { normal.scaleBy(-1); }
-    normal.normalize();
-    var light = 0.5 + 35 * normal.dotProduct(lightVector);
-    if (light < 0) { light = 0; }
-    if (light > 1) { light = 1; }
-    return light;
-};
-
-exports.colorWithSlope = function (color, p, q, edge, displayColors) {
-    var r = edge.v0;
-    var s = edge.v1;
-    if (_.isNull(r) || _.isNull(s)) {
-        // Edge of the map
-        return displayColors.OCEAN;
-    } else if (p.water) {
-        return color;
-    }
-
-    if (q !== null && p.water === q.water) {
-        color = colorModule.interpolateColor(color, displayColors[q.biome], 0.4);
-    }
-    var colorLow = colorModule.interpolateColor(color, 0x333333, 0.7);
-    var colorHigh = colorModule.interpolateColor(color, 0xffffff, 0.3);
-    var light = exports.calculateLighting(p, r, s);
-    if (light < 0.5) {
-        return colorModule.interpolateColor(colorLow, color, light * 2);
-    } else {
-        return colorModule.interpolateColor(color, colorHigh, light * 2 - 1);
-    }
-};
-
-exports.colorWithSmoothColors = function (color, p, q, edge, displayColors) {
-    if (q !== null && p.water === q.water) {
-        color = colorModule.interpolateColor(displayColors[p.biome], displayColors[q.biome], 0.25);
-    }
-    return color;
-};
-
-exports.renderDebugPolygons = function (context, map, displayColors) {
-
-    var color;
-
-    if (map.centers.length === 0) {
-        // We're still constructing the map so we may have some points
-        
-        context.fillStyle = '#dddddd';
-        context.fillRect(0, 0, core.toInt(map.SIZE.width), core.toInt(map.SIZE.height) /*context.canvas.width, context.canvas.height */); //graphics.drawRect(0, 0, SIZE, SIZE);
-        _(map.points).each(function (point) {
-            context.beginPath();
-            context.strokeStyle = '#000000';
-            context.fillStyle = '#000000';
-            context.arc(point.x, point.y, 1.3, Math.PI, 2 * Math.PI, false);
-            context.closePath();
-            context.fill();
-            context.stroke();
-        });
-    }
-    
-    _(map.centers).each(function (p) {
-        color = !_.isNull(p.biome) ? displayColors[p.biome] : (p.ocean ? displayColors.OCEAN : p.water ? displayColors.RIVER : 0xffffff);
-      
-        //Draw shape
-        context.beginPath();
-        _(p.borders).each(function (edge) {
-            if (!_.isNull(edge.v0) && !_.isNull(edge.v1)) {
-                context.moveTo(p.point.x, p.point.y);
-                context.lineTo(edge.v0.point.x, edge.v0.point.y);
-                context.lineTo(edge.v1.point.x, edge.v1.point.y);
-            }
-        });
-        context.closePath();
-        context.fillStyle = colorModule.intToHexColor(colorModule.interpolateColor(color, 0xdddddd, 0.2));
-        context.fill();
-
-        //Draw borders
-        _(p.borders).each(function (edge) {
-            if (!_.isNull(edge.v0) && !_.isNull(edge.v1)) {
-                context.beginPath();
-                context.moveTo(edge.v0.point.x, edge.v0.point.y);
-                if (edge.river > 0) {
-                    context.lineWidth = 1;
-                    context.strokeStyle = colorModule.intToHexColor(displayColors.RIVER);
-                } else {
-                    context.lineWidth = 0.1;
-                    context.strokeStyle = '#000000';
-                }
-                context.lineTo(edge.v1.point.x, edge.v1.point.y);
-                context.closePath();
-                context.stroke();
-            }
-        });
-        
-        context.beginPath();
-        context.fillStyle = (p.water ? '#003333' : '#000000');
-        context.globalAlpha = 0.7;
-        context.arc(p.point.x, p.point.y, 1.3, Math.PI, 2 * Math.PI, false);
-        context.closePath();
-        context.fill();
-        context.globalAlpha = 1.0;
-        _(p.corners).each(function (q) {
-            context.fillStyle = q.water ? '#0000ff' : '#009900';
-            context.fillRect(core.toInt(q.point.x - 0.7), core.toInt(q.point.y - 0.7), core.toInt(1.5), core.toInt(1.5));
-        });
-    });
-};
-
-/**
- * Render the paths from each polygon to the ocean, showing watersheds.
- */
-exports.renderWatersheds = function (graphics, map, watersheds) {
-    var edge, w0, w1;
-
-    _(map.edges).each(function (edge) {
-        if (!_.isNull(edge.d0) && !_.isNull(edge.d1) && !_.isNull(edge.v0) && !_.isNull(edge.v1) && !edge.d0.ocean && !edge.d1.ocean) {
-            w0 = watersheds.watersheds[edge.d0.index];
-            w1 = watersheds.watersheds[edge.d1.index];
-            if (w0 !== w1) {
-                graphics.beginPath();
-                //graphics.lineStyle(3.5, 0x000000, 0.1 * Math.sqrt((map.corners[w0].watershedSize || 1) + (map.corners[w1].watershed.watershedSize || 1)));
-                graphics.lineWidth = 3.5;
-                graphics.strokeStyle = colorModule.rgba(0, 0, 0, 0.1 * Math.sqrt((core.coalesce(map.corners[w0].watershedSize, 1)) + (core.coalesce(map.corners[w1].watershed.watershedSize, 1))));
-                graphics.moveTo(edge.v0.point.x, edge.v0.point.y);
-                graphics.lineTo(edge.v1.point.x, edge.v1.point.y);
-                graphics.closePath(); //graphics.lineStyle();
-                graphics.stroke();
-            }
-        }
-    });
-
-    for (edge in map.edges) {
-        if (convert.booleanFromInt(edge.river)) {
-            graphics.beginPath();
-            //graphics.lineStyle(1.0, 0x6699ff);
-            graphics.lineWidth = 1.0;
-            graphics.strokeStyle = '#6699ff';
-            graphics.moveTo(edge.v0.point.x, edge.v0.point.y);
-            graphics.lineTo(edge.v1.point.x, edge.v1.point.y);
-            //graphics.lineStyle();
-            graphics.closePath();
-            graphics.stroke();
-        }
-    }
-};
-
-function drawPathForwards(graphics, path) {
-    for (var i = 0; i < path.length; i++) {
-        graphics.lineTo(path[i].x, path[i].y);
-    }
-}
-
-/**
- * Helper function for drawing triangles with gradients. This
- * function sets up the fill on the graphics object, and then
- * calls fillFunction to draw the desired path.
- */
-function drawGradientTriangle(graphics, v1, v2, v3, colors, fillFunction, fillX, fillY) {
-    var m = matrix();
-
-    // Center of triangle:
-    var V = v1.add(v2).add(v3);
-    V.scaleBy(1 / 3.0);
-
-    // Normal of the plane containing the triangle:
-    var N = v2.subtract(v1).crossProduct(v3.subtract(v1));
-    N.normalize();
-
-    // Gradient vector in x-y plane pointing in the direction of increasing z
-    var G = vector3d(-N.x / N.z, -N.y / N.z, 0);
-
-    // Center of the color gradient
-    var C = vector3d(V.x - G.x * ((V.z - 0.5) / G.length / G.length), V.y - G.y * ((V.z - 0.5) / G.length / G.length));
-
-    if (G.length < 1e-6) {
-        // If the gradient vector is small, there's not much
-        // difference in colors across this triangle. Use a plain
-        // fill, because the numeric accuracy of 1/G.length is not to
-        // be trusted.  NOTE: only works for 1, 2, 3 colors in the array
-        var color = colors[0];
-        if (colors.length === 2) {
-            color = colorModule.interpolateColor(colors[0], colors[1], V.z);
-        } else if (colors.length === 3) {
-            if (V.z < 0.5) {
-                color = colorModule.interpolateColor(colors[0], colors[1], V.z * 2);
-            } else {
-                color = colorModule.interpolateColor(colors[1], colors[2], V.z * 2 - 1);
-            }
-        }
-        graphics.fillStyle = colorModule.intToHexColor(color); //graphics.beginFill(color);
-    } else {
-        // The gradient box is weird to set up, so we let Flash set up
-        // a basic matrix and then we alter it:
-        m.createGradientBox(1, 1, 0, 0, 0);
-        m.translate(-0.5, -0.5);
-        m.scale((1 / G.length), (1 / G.length));
-        m.rotate(Math.atan2(G.y, G.x));
-        m.translate(C.x, C.y);
-        var alphas = _(colors).map(function (c) { return 1.0; });
-        var spread = _(colors).map(function (c, index) { return 255 * index / (colors.length - 1); });
-        //graphics.beginGradientFill(GradientType.LINEAR, colors, alphas, spread, m, SpreadMethod.PAD);
-    }
-    fillFunction(graphics, fillX, fillY);
-    graphics.fill(); //graphics.endFill();
-}
-
-/**
- * Render the interior of polygons
- */
-exports.renderPolygons = function (graphics, colors, gradientFillProperty, colorOverrideFunction, map, noisyEdges)  {
-    // My Voronoi polygon rendering doesn't handle the boundary
-    // polygons, so I just fill everything with ocean first.
-    graphics.fillStyle = colorModule.intToHexColor(colors.OCEAN);
-    graphics.fillRect(0, 0, core.toInt(map.SIZE.width), core.toInt(map.SIZE.height));
- 
-    var drawPath0 = function (graphics, x, y) {
-        var path = noisyEdges.path0[edge.index];
-        graphics.moveTo(x, y);
-        graphics.lineTo(path[0].x, path[0].y);
-        drawPathForwards(graphics, path);
-        graphics.lineTo(x, y);
-    };
-
-    var drawPath1 = function (graphics, x, y) {
-        var path = noisyEdges.path1[edge.index];
-        graphics.moveTo(x, y);
-        graphics.lineTo(path[0].x, path[0].y);
-        drawPathForwards(graphics, path);
-        graphics.lineTo(x, y);
-    };
-
-    for (var centerIndex = 0; centerIndex < map.centers.length; centerIndex++) {
-        var p = map.centers[centerIndex];
-        for (var neighborIndex = 0; neighborIndex < p.neighbors.length; neighborIndex++) {
-            var r = p.neighbors[neighborIndex];
-            var edge = map.lookupEdgeFromCenter(p, r);
-            var color = core.coalesce(colors[p.biome], 0);
-            if (colorOverrideFunction !== null) {
-                color = colorOverrideFunction(color, p, r, edge, colors);
-            }
-
-            if (core.isUndefinedOrNull(noisyEdges.path0[edge.index]) || core.isUndefinedOrNull(noisyEdges.path1[edge.index])) {
-                // It's at the edge of the map, where we don't have
-                // the noisy edges computed. TODO: figure out how to
-                // fill in these edges from the voronoi library.
-                continue;
-            }
-
-            if (!core.isUndefinedOrNull(gradientFillProperty)) {
-                // We'll draw two triangles: center - corner0 -
-                // midpoint and center - midpoint - corner1.
-                var corner0 = edge.v0;
-                var corner1 = edge.v1;
-
-                // We pick the midpoint elevation/moisture between
-                // corners instead of between polygon centers because
-                // the resulting gradients tend to be smoother.
-                var midpoint = edge.midpoint;
-                var midpointAttr = 0.5 * (corner0[gradientFillProperty] + corner1[gradientFillProperty]);
-                drawGradientTriangle(
-                    graphics,
-                    vector3d(p.point.x, p.point.y, p[gradientFillProperty]),
-                    vector3d(corner0.point.x, corner0.point.y, corner0[gradientFillProperty]),
-                    vector3d(midpoint.x, midpoint.y, midpointAttr),
-                    [colors.GRADIENT_LOW, colors.GRADIENT_HIGH],
-                    drawPath0, p.point.x, p.point.y
-                );
-                drawGradientTriangle(
-                    graphics,
-                    vector3d(p.point.x, p.point.y, p[gradientFillProperty]),
-                    vector3d(midpoint.x, midpoint.y, midpointAttr),
-                    vector3d(corner1.point.x, corner1.point.y, corner1[gradientFillProperty]),
-                    [colors.GRADIENT_LOW, colors.GRADIENT_HIGH],
-                    drawPath1, p.point.x, p.point.y
-                );
-            } else {
-                graphics.fillStyle = colorModule.intToHexColor(color);
-                graphics.strokeStyle = graphics.fillStyle;
-                graphics.beginPath();
-                drawPath0(graphics, p.point.x, p.point.y);
-                drawPath1(graphics, p.point.x, p.point.y);
-                graphics.closePath();
-                graphics.fill();
-                graphics.stroke();
-            }
-        }
-    }
-};
-
-/**
- * Render bridges across every narrow river edge. Bridges are
- * straight line segments perpendicular to the edge. Bridges are
- * drawn after rivers. TODO: sometimes the bridges aren't long
- * enough to cross the entire noisy line river. TODO: bridges
- * don't line up with curved road segments when there are
- * roads. It might be worth making a shader that draws the bridge
- * only when there's water underneath.
- */
-exports.renderBridges = function (graphics, map, roads, colors) {
-    _(map.edges).each(function (edge) {
-        if (edge.river > 0 && edge.river < 4 &&
-            !edge.d0.water && !edge.d1.water &&
-            (edge.d0.elevation > 0.05 || edge.d1.elevation > 0.05)) {
-
-            var n = { x: -(edge.v1.point.y - edge.v0.point.y), y: edge.v1.point.x - edge.v0.point.x };
-            pointCore.normalize(n, 0.25 + (!_.isNull(roads.road[edge.index]) ? 0.5 : 0) + 0.75 * Math.sqrt(edge.river));
-            graphics.beginPath();
-            graphics.lineWidth = 1.1;
-            graphics.strokeStyle = colorModule.intToHexColor(colors.BRIDGE);
-            graphics.lineCap = 'square';
-            graphics.moveTo(edge.midpoint.x - n.x, edge.midpoint.y - n.y);
-            graphics.lineTo(edge.midpoint.x + n.x, edge.midpoint.y + n.y);
-            graphics.closePath();
-            graphics.stroke();
-        }
-    });
-};
-
-/**
- * Render roads. We draw these before polygon edges, so that rivers overwrite roads.
- */
-exports.renderRoads = function (graphics, map, roads, colors) {
-    // First draw the roads, because any other feature should draw
-    // over them. Also, roads don't use the noisy lines.
-    var A, B, C;
-    var i, j, d, edge1, edge2, edges;
-
-    /**
-     * Helper function: find the normal vector across edge 'e' and
-     * make sure to point it in a direction towards 'c'.
-     */
-    function normalTowards(e, c, len) {
-        // Rotate the v0-->v1 vector by 90 degrees:
-        var n = { x: -(e.v1.point.y - e.v0.point.y), y: e.v1.point.x - e.v0.point.x };
-        // Flip it around it if doesn't point towards c
-        var d = pointCore.subtract(c, e.midpoint);
-        if (n.x * d.x + n.y * d.y < 0) {
-            n.x = -n.x;
-            n.y = -n.y;
-        }
-        pointCore.normalize(n, len);
-        return n;
-    }
-  
-    _(map.centers).each(function (p) {
-        if (!core.isUndefinedOrNull(roads.roadConnections[p.index])) {
-            if (roads.roadConnections[p.index].length === 2) {
-                // Regular road: draw a spline from one edge to the other.
-                edges = p.borders;
-                for (i = 0; i < edges.length; i++) {
-                    edge1 = edges[i];
-                    if (roads.road[edge1.index] > 0) {
-                        for (j = i + 1; j < edges.length; j++) {
-                            edge2 = edges[j];
-                            if (roads.road[edge2.index] > 0) {
-                                // The spline connects the midpoints of the edges
-                                // and at right angles to them. In between we
-                                // generate two control points A and B and one
-                                // additional vertex C.  This usually works but
-                                // not always.
-                                d = 0.5 * Math.min(
-                                    pointCore.distanceFromOrigin(pointCore.subtract(edge1.midpoint, p.point)),
-                                    pointCore.distanceFromOrigin(pointCore.subtract(edge2.midpoint, p.point))
-                                );
-                                A = pointCore.add(normalTowards(edge1, p.point, d), edge1.midpoint);
-                                B = pointCore.add(normalTowards(edge2, p.point, d), edge2.midpoint);
-                                C = pointCore.interpolate(A, B, 0.5);
-                                graphics.beginPath();
-                                graphics.lineWidth = 1.1;
-                                graphics.strokeStyle = colorModule.intToHexColor(colors['ROAD' + roads.road[edge1.index]]);
-                                graphics.moveTo(edge1.midpoint.x, edge1.midpoint.y);
-                                graphics.quadraticCurveTo(A.x, A.y, C.x, C.y);
-                                graphics.moveTo(C.x, C.y);
-                                graphics.lineWidth = 1.1;
-                                graphics.strokeStyle = colorModule.intToHexColor(colors['ROAD' + roads.road[edge2.index]]);
-                                graphics.quadraticCurveTo(B.x, B.y, edge2.midpoint.x, edge2.midpoint.y);
-                                graphics.stroke();
-                                graphics.closePath();
-                            }
-                        }
-                    }
-                }
-            } else {
-                // Intersection or dead end: draw a road spline from
-                // each edge to the center
-                _(p.borders).each(function (edge1) {
-                    if (roads.road[edge1.index] > 0) {
-                        d = 0.25 * pointCore.distanceFromOrigin(pointCore.subtract(edge1.midpoint, p.point));
-                        A = pointCore.add(normalTowards(edge1, p.point, d), edge1.midpoint);
-                        graphics.beginPath();
-                        graphics.lineWidth = 1.4;
-                        graphics.strokeStyle = colorModule.intToHexColor(colors['ROAD' + roads.road[edge1.index]]);
-                        graphics.moveTo(edge1.midpoint.x, edge1.midpoint.y);
-                        graphics.quadraticCurveTo(A.x, A.y, p.point.x, p.point.y);
-                        graphics.stroke();
-                        graphics.closePath();
-                    }
-                });
-            }
-        }
-    });
-};
-
-function drawPathBackwards(graphics, path) {
-    var i = path.length - 1;
-    while (i >= 0) {
-        graphics.lineTo(path[i].x, path[i].y);
-        i--;
-    }
-}
-
-/**
- * Render the exterior of polygons: coastlines, lake shores,
- * rivers, lava fissures. We draw all of these after the polygons
- * so that polygons don't overwrite any edges.
- */
-exports.renderEdges = function (graphics, colors, map, noisyEdges, lava, renderRivers) {
-    renderRivers = core.def(renderRivers, true);
-    var edge;
-    
-    for (var centerIndex = 0; centerIndex < map.centers.length; centerIndex++) {
-        var p = map.centers[centerIndex];
-        for (var neighborIndex = 0; neighborIndex < p.neighbors.length; neighborIndex++) {
-            var r = p.neighbors[neighborIndex];
-            edge = map.lookupEdgeFromCenter(p, r);
-            if (core.isUndefinedOrNull(noisyEdges.path0[edge.index]) || core.isUndefinedOrNull(noisyEdges.path1[edge.index])) {
-                // It's at the edge of the map
-                continue;
-            }
-            if (p.ocean !== r.ocean) {
-                // One side is ocean and the other side is land -- coastline
-                graphics.lineWidth = 2;
-                graphics.strokeStyle = colorModule.intToHexColor(colors.COAST);
-            } else if ((convert.intFromBoolean(p.water) > 0) !== (convert.intFromBoolean(r.water) > 0) && p.biome !== 'ICE' && r.biome !== 'ICE') {
-                // Lake boundary
-                graphics.lineWidth = 1;
-                graphics.strokeStyle = colorModule.intToHexColor(colors.LAKESHORE);
-            } else if (p.water || r.water) {
-                // Lake interior – we don't want to draw the rivers here
-                continue;
-            } else if (lava.lava[edge.index]) {
-                // Lava flow
-                graphics.lineWidth = 1;
-                graphics.strokeStyle = colorModule.intToHexColor(colors.LAVA);
-            } else if (edge.river > 0 && renderRivers) {
-                // River edge
-                graphics.lineWidth = Math.sqrt(edge.river);
-                graphics.strokeStyle = colorModule.intToHexColor(colors.RIVER);
-            } else {
-                continue;
-            }
-            
-            graphics.beginPath();
-            graphics.moveTo(noisyEdges.path0[edge.index][0].x, noisyEdges.path0[edge.index][0].y);
-            drawPathForwards(graphics, noisyEdges.path0[edge.index]);
-            drawPathBackwards(graphics, noisyEdges.path1[edge.index]);
-            graphics.stroke();
-            graphics.closePath();
-        }
-    }
-};
-
-exports.renderAllEdges = function (graphics, strokeStyle, map, noisyEdges) {
-    var edge;
-
-    graphics.lineWidth = 5;
-    graphics.strokeStyle = strokeStyle;
-
-    for (var centerIndex = 0; centerIndex < map.centers.length; centerIndex++) {
-        var p = map.centers[centerIndex];
-        for (var neighborIndex = 0; neighborIndex < p.neighbors.length; neighborIndex++) {
-            var r = p.neighbors[neighborIndex];
-            edge = map.lookupEdgeFromCenter(p, r);
-
-            if (core.isUndefinedOrNull(noisyEdges.path0[edge.index]) || core.isUndefinedOrNull(noisyEdges.path1[edge.index]) || p.water) {
-                // It's at the edge of the map or water
-                continue;
-            }
-
-            // edge
-
-            graphics.beginPath();
-            graphics.moveTo(noisyEdges.path0[edge.index][0].x, noisyEdges.path0[edge.index][0].y);
-            drawPathForwards(graphics, noisyEdges.path0[edge.index]);
-            drawPathBackwards(graphics, noisyEdges.path1[edge.index]);
-            graphics.stroke();
-            graphics.closePath();
-        }
-    }
-};
-
-},{"../as3/conversion-core":2,"../as3/matrix":3,"../as3/point-core":4,"../as3/vector-3d":6,"../janicek/core":9,"../janicek/html-color":11,"lodash":1}],35:[function(require,module,exports){
-'use strict';
-
-module.exports = function () {
-    return {
-        index: null,
-      
-        point: null,        // Point location
-        water: null,        // lake or ocean
-        ocean: null,        // ocean
-        coast: null,        // land polygon touching an ocean
-        border: null,       // at the edge of the map
-        biome: null,          // biome type (see article)
-        elevation: null,     // 0.0-1.0
-        moisture: null,      // 0.0-1.0
-
-        neighbors: null,    // Vector<Center>
-        borders: null,      // Vector<Edge>
-        corners: null       // Vector<Corner>
-    };
-};
-},{}],36:[function(require,module,exports){
-'use strict';
-
-module.exports = function () {
-    return {
-        index: null,
-      
-        point: null,  // location
-        ocean: null,  // ocean
-        water: null,  // lake or ocean
-        coast: null,  // touches ocean and land polygons
-        border: null,  // at the edge of the map
-        elevation: null,  // 0.0-1.0
-        moisture: null,  // 0.0-1.0
-
-        touches: null,
-        protrudes: null,
-        adjacent: null,
-      
-        river: null,  // 0 if no river, or volume of water in river
-        downslope: null,  // pointer to adjacent corner most downhill
-        watershed: null,  // pointer to coastal corner, or null
-        watershedSize: null
-    };
-};
-},{}],37:[function(require,module,exports){
-'use strict';
-
-module.exports = function () {
-    return {
-        index: 0,
-        d0: null,  // Delaunay edge
-        d1: null,  // Delaunay edge
-        v0: null,  // Voronoi edge
-        v1: null,  // Voronoi edge
-        midpoint: null,  // halfway between v0,v1
-        river: 0  // volume of water, or 0
-    };
-};
-},{}],38:[function(require,module,exports){
-/* jshint bitwise:false */
-
-/**
- * Factory class to build the 'inside' function that tells us whether
- * a point should be on the island or in the water.
- * 
- * This class has factory functions for generating islands of
- * different shapes. The factory returns a function that takes a
- * normalized point (x and y are -1 to +1) and returns true if the
- * point should be on the island, and false if it should be water
- * (lake or ocean).
- */
-
-'use strict';
-
-var array2d = require('../janicek/array2d');
-var core = require('../janicek/core');
-var distanceFromOrigin = require('../as3/point-core').distanceFromOrigin;
-var perlinNoise = require('../janicek/perlin-noise');
-var prngModule = require('../polygonal/pm-prng');
-var prng = require('../janicek/pseudo-random-number-generators');
-
-/**
-* The radial island radius is based on overlapping sine waves 
-* @param seed
-* @param islandFactor = 1.0 means no small islands; 2.0 leads to a lot
+},{}],47:[function(require,module,exports){
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: true, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
 */
-exports.makeRadial = function (seed, islandFactor) {
-    islandFactor = core.def(islandFactor, 1.07);
 
-    var islandRandom = prngModule();
-    islandRandom.seed = seed;
-    var bumps = islandRandom.nextIntRange(1, 6);
-    var startAngle = islandRandom.nextDoubleRange(0, 2 * Math.PI);
-    var dipAngle = islandRandom.nextDoubleRange(0, 2 * Math.PI);
-    var dipWidth = islandRandom.nextDoubleRange(0.2, 0.7);
-
-    function inside(q) {
-        var angle = Math.atan2(q.y, q.x);
-        var length = 0.5 * (Math.max(Math.abs(q.x), Math.abs(q.y)) + distanceFromOrigin(q));
-
-        var r1 = 0.5 + 0.40 * Math.sin(startAngle + bumps * angle + Math.cos((bumps + 3) * angle));
-        var r2 = 0.7 - 0.20 * Math.sin(startAngle + bumps * angle - Math.sin((bumps + 2) * angle));
-        if (Math.abs(angle - dipAngle) < dipWidth ||
-            Math.abs(angle - dipAngle + 2 * Math.PI) < dipWidth ||
-            Math.abs(angle - dipAngle - 2 * Math.PI) < dipWidth) {
-            r1 = r2 = 0.2;
-        }
-        return  (length < r1 || (length > r1 * islandFactor && length < r2));
-    }
-
-    return inside;
-};
-
-/**
- * The Perlin-based island combines perlin noise with the radius.
- * @param   seed
- * @param   oceanRatio 0 = least ocean, 1 = most ocean
- */
-exports.makePerlin = function (seed, oceanRatio) {
-    oceanRatio = core.def(oceanRatio, 0.5);
-
-    var landRatioMinimum = 0.1;
-    var landRatioMaximum = 0.5;
-    oceanRatio = ((landRatioMaximum - landRatioMinimum) * oceanRatio) + landRatioMinimum;  //min: 0.1 max: 0.5
-    var perlin = array2d(perlinNoise.makePerlinNoise(256, 256, 1.0, 1.0, 1.0, seed, 8));
-    //perlin.perlinNoise(64, 64, 8, seed, false, true); //mapgen2
-
-    return function (q) {
-        var c = (perlin.get(core.toInt((q.x + 1) * 128), core.toInt((q.y + 1) * 128)) & 0xff) / 255.0;
-        //var c:Number = (perlin.getPixel(Std.int((q.x+1)*128), Std.int((q.y+1)*128)) & 0xff) / 255.0; //mapgen2
-        return c > (oceanRatio + oceanRatio * distanceFromOrigin(q) * distanceFromOrigin(q));
-    };
-};
-
-/**
- * The square shape fills the entire space with land
- */
-exports.makeSquare = function () {
-    return function (q) {
-        return true;
-    };
-};
-
-/**
-* The blob island is shaped like Amit's blob logo
-*/
-exports.makeBlob = function () {
-    return function (q) {
-        var eye1 = distanceFromOrigin({ x: q.x - 0.2, y: q.y / 2 + 0.2 }) < 0.05;
-        var eye2 = distanceFromOrigin({ x: q.x + 0.2, y: q.y / 2 + 0.2 }) < 0.05;
-        var body = distanceFromOrigin(q) < 0.8 - 0.18 * Math.sin(5 * Math.atan2(q.y, q.x));
-        return body && !eye1 && !eye2;
-    };
-};
-
-/**
- * Make island from bitmap.
- * @param {[[boolean]]} bitmap
- */
-exports.makeBitmap = function (bitmap) {
-    bitmap = array2d(bitmap);
-    var dimensions = bitmap.dimensions();
-    return function (q) {
-        var x = core.toInt(((q.x + 1) / 2) * dimensions.x);
-        var y = core.toInt(((q.y + 1) / 2) * dimensions.y);
-        return bitmap.get(x, y);
-    };
-};
-
-/**
- * Make island from simple noise.
- */
-exports.makeNoise = function (seed) {
-    return function (q) {
-        seed = prng.nextParkMiller(seed);
-        return prng.toBool(seed);
-    };
-};
-},{"../as3/point-core":4,"../janicek/array2d":8,"../janicek/core":9,"../janicek/perlin-noise":12,"../janicek/pseudo-random-number-generators":13,"../polygonal/pm-prng":33}],39:[function(require,module,exports){
 'use strict';
 
 var _ = require('lodash');
-var cc = require('../as3/conversion-core');
-
-module.exports = function () {
-    return {
-
-        // The lava array marks the edges that hava lava.
-        lava: [], // Array<Boolean> edge index -> Boolean
-
-        // Lava fissures are at high elevations where moisture is low
-        createLava: function (map, randomDouble) {
-            _(map.edges).each(function (edge) {
-                if (!cc.booleanFromInt(edge.river) &&
-                    !edge.d0.water && !edge.d1.water &&
-                    edge.d0.elevation > 0.8 && edge.d1.elevation > 0.8 &&
-                    edge.d0.moisture < 0.3 && edge.d1.moisture < 0.3 &&
-                    randomDouble() < exports.FRACTION_LAVA_FISSURES) {
-
-                    this.lava[edge.index] = true;
-                }
-            });
-        }
-
-    };
-};
-
-module.exports.FRACTION_LAVA_FISSURES = 0.2;  // 0 to 1, probability of fissure
-},{"../as3/conversion-core":2,"lodash":1}],40:[function(require,module,exports){
-'use strict';
-
-var _ = require('lodash');
-var centerModule = require('./graph/center');
-var convert = require('../as3/conversion-core');
-var cornerModule = require('./graph/corner');
-var core = require('../janicek/core');
-var edgeModule = require('./graph/edge');
-var prng = require('../polygonal/pm-prng');
-var pc = require('../as3/point-core');
-var rectangle = require('../as3/rectangle');
-var voronoiModule = require('../nodename/delaunay/voronoi');
-
-/**
- * Make a new map.
- * @param   size width and height of map
- * @param   riverChance 0 = no rivers, > 0 = more rivers, default = map area / 4
- */
-var mapModule = function (size) {
-    var pub = {};
-
-    /**
-     * Passed in by the caller:
-     */
-    pub.SIZE = size;
-
-    /**
-     * Island shape is controlled by the islandRandom seed and the
-     * type of island, passed in when we set the island shape. The
-     * islandShape function uses both of them to determine whether any
-     * point should be water or land.
-     */
-    pub.islandShape = null;
-
-
-    /**
-     * Island details are controlled by this random generator. The
-     * initial map upon loading is always deterministic, but
-     * subsequent maps reset this random number generator with a
-     * random seed.
-     */
-    pub.mapRandom = prng();
-
-    // These store the graph data
-    
-    /**
-     * Only useful during map construction
-     */
-    pub.points = []; // Vector<Point>
-    pub.centers = []; // Vector<Center>
-    pub.corners = []; // Vector<Corner>
-    pub.edges = []; // Vector<Edge>
-
-
-    /**
-     * Random parameters governing the overall shape of the island
-     */
-    pub.newIsland = function (islandShape, variant) {
-        pub.islandShape = islandShape;
-        pub.mapRandom.seed = variant;
-    };
-
-    /**
-     * Generate the initial random set of points.
-     */
-    pub.go0PlacePoints = function (numberOfPoints) {
-        numberOfPoints = core.def(numberOfPoints, mapModule.DEFAULT_NUMBER_OF_POINTS);
-        pub.reset();
-        pub.points = pub.generateRandomPoints(numberOfPoints);
-    };
-
-    pub.go1ImprovePoints = function (numLloydIterations) {
-        numLloydIterations = core.def(numLloydIterations, mapModule.DEFAULT_LLOYD_ITERATIONS);
-        pub.improveRandomPoints(pub.points, numLloydIterations);
-    };
-
-    /**
-     * Create a graph structure from the Voronoi edge list. The
-     * methods in the Voronoi object are somewhat inconvenient for
-     * my needs, so I transform that data into the data I actually
-     * need: edges connected to the Delaunay triangles and the
-     * Voronoi polygons, a reverse map from those four points back
-     * to the edge, a map from these four points to the points
-     * they connect to (both along the edge and crosswise).
-     */
-    pub.go2BuildGraph = function () {
-        var voronoi = voronoiModule.make(pub.points, null, rectangle(0, 0, pub.SIZE.width, pub.SIZE.height));
-        pub.buildGraph(pub.points, voronoi);
-        pub.improveCorners();
-        voronoi.dispose();
-        voronoi = null;
-        pub.points = null;
-    };
-
-    /**
-     * 
-     * @param   lakeThreshold 0 to 1, fraction of water corners for water polygon, default = 0.3
-     */
-    pub.go3AssignElevations = function (lakeThreshold) {
-        lakeThreshold = core.def(lakeThreshold, mapModule.DEFAULT_LAKE_THRESHOLD);
-
-        // Determine the elevations and water at Voronoi corners.
-        pub.assignCornerElevations();
-
-        // Determine polygon and corner type: ocean, coast, land.
-        pub.assignOceanCoastAndLand(lakeThreshold);
-
-        // Rescale elevations so that the highest is 1.0, and they're
-        // distributed well. We want lower elevations to be more common
-        // than higher elevations, in proportions approximately matching
-        // concentric rings. That is, the lowest elevation is the
-        // largest ring around the island, and therefore should more
-        // land area than the highest elevation, which is the very
-        // center of a perfectly circular island.
-        pub.redistributeElevations(pub.landCorners(pub.corners));
-
-        // Assign elevations to non-land corners
-        _(pub.corners).each(function (q) {
-            if (q.ocean || q.coast) {
-                q.elevation = 0.0;
-            }
-        });
-
-        // Polygon elevations are the average of their corners
-        pub.assignPolygonElevations();
-    };
-
-    pub.go4AssignMoisture = function (riverChance) {
-        riverChance = core.def(riverChance, null);
-
-        // Determine downslope paths.
-        pub.calculateDownslopes();
-
-        // Determine watersheds: for every corner, where does it flow
-        // out into the ocean? 
-        pub.calculateWatersheds();
-
-        // Create rivers.
-        pub.createRivers(riverChance);
-
-        // Determine moisture at corners, starting at rivers
-        // and lakes, but not oceans. Then redistribute
-        // moisture to cover the entire range evenly from 0.0
-        // to 1.0. Then assign polygon moisture as the average
-        // of the corner moisture.
-        pub.assignCornerMoisture();
-        pub.redistributeMoisture(pub.landCorners(pub.corners));
-        pub.assignPolygonMoisture();
-    };
-
-    pub.go5DecorateMap = function () {
-        pub.assignBiomes();
-    };
-
-    pub.reset = function () {
-        // Break cycles so the garbage collector will release data.
-        if (pub.points !== null) {
-            pub.points.splice(0, pub.points.length);
-        }
-        if (pub.edges !== null) {
-            _(pub.edges).each(function (edge) {
-                edge.d0 = edge.d1 = null;
-                edge.v0 = edge.v1 = null;
-            });
-            pub.edges.splice(0, pub.edges.length);
-        }
-        if (pub.centers !== null) {
-            _(pub.centers).each(function (p) {
-                p.neighbors.splice(0, p.neighbors.length);
-                p.corners.splice(0, p.corners.length);
-                p.borders.splice(0, p.borders.length);
-            });
-            pub.centers.splice(0, pub.centers.length);
-        }
-        if (pub.corners !== null) {
-            _(pub.corners).each(function (q) {
-                q.adjacent.splice(0, q.adjacent.length);
-                q.touches.splice(0, q.touches.length);
-                q.protrudes.splice(0, q.protrudes.length);
-                q.downslope = null;
-                q.watershed = null;
-            });
-            pub.corners.splice(0, pub.corners.length);
-        }
-        // Clear the previous graph data.
-        if (pub.points === null) { pub.points = []; }
-        if (pub.edges === null) { pub.edges = []; }
-        if (pub.centers === null) { pub.centers = []; }
-        if (pub.corners === null) { pub.corners = []; }
-      
-        // Disabled for JavaScript
-        //System.gc();
-    };
-
-    /**
-     * Generate random points and assign them to be on the island or
-     * in the water. Some water points are inland lakes; others are
-     * ocean. We'll determine ocean later by looking at what's
-     * connected to ocean.
-     */
-    pub.generateRandomPoints = function (NUM_POINTS) {
-        var p, i, points = []; //Vector<Point>
-        for (i = 0; i < NUM_POINTS; i++) {
-            p = {
-                x: pub.mapRandom.nextDoubleRange(10, pub.SIZE.width - 10),
-                y: pub.mapRandom.nextDoubleRange(10, pub.SIZE.height - 10)
-            };
-            points.push(p);
-        }
-        return points;
-    };
-
-    /**
-     * Improve the random set of points with Lloyd Relaxation.
-     */
-    pub.improveRandomPoints = function (points, numLloydIterations) {
-      // We'd really like to generate "blue noise". Algorithms:
-      // 1. Poisson dart throwing: check each new point against all
-      //     existing points, and reject it if it's too close.
-      // 2. Start with a hexagonal grid and randomly perturb points.
-      // 3. Lloyd Relaxation: move each point to the centroid of the
-      //     generated Voronoi polygon, then generate Voronoi again.
-      // 4. Use force-based layout algorithms to push points away.
-      // 5. More at http://www.cs.virginia.edu/~gfx/pubs/antimony/
-      // Option 3 is implemented here. If it's run for too many iterations,
-      // it will turn into a grid, but convergence is very slow, and we only
-      // run it a few times.
-
-        var i, voronoi, region;
-        for (i = 0; i < numLloydIterations; i++) {
-            voronoi = voronoiModule.make(points, null, rectangle(0, 0, pub.SIZE.width, pub.SIZE.height));
-            for (var pointsIndex = 0; pointsIndex < points.length; pointsIndex++) {
-                var p = points[pointsIndex];
-                region = voronoi.region(p);
-                p.x = 0.0;
-                p.y = 0.0;
-                for (var regionIndex = 0; regionIndex < region.length; regionIndex++) {
-                    var q = region[regionIndex];
-                    p.x += q.x;
-                    p.y += q.y;
-                }
-                p.x /= region.length;
-                p.y /= region.length;
-                region.splice(0, region.length);
-            }
-            voronoi.dispose();
-        }
-    };
-
-    /**
-     * Although Lloyd relaxation improves the uniformity of polygon
-     * sizes, it doesn't help with the edge lengths. Short edges can
-     * be bad for some games, and lead to weird artifacts on
-     * rivers. We can easily lengthen short edges by moving the
-     * corners, but **we lose the Voronoi property**.  The corners are
-     * moved to the average of the polygon centers around them. Short
-     * edges become longer. Long edges tend to become shorter. The
-     * polygons tend to be more uniform after this step.
-     */
-    pub.improveCorners = function () {
-        var newCorners = []; // Vector<Point>
-        var point, i;
-
-        // First we compute the average of the centers next to each corner.
-        _(pub.corners).each(function (q) {
-            if (q.border) {
-                newCorners[q.index] = q.point;
-            } else {
-                point = {x: 0.0, y: 0.0};
-                _(q.touches).each(function (r) {
-                    point.x += r.point.x;
-                    point.y += r.point.y;
-                });
-                point.x /= q.touches.length;
-                point.y /= q.touches.length;
-                newCorners[q.index] = point;
-            }
-        });
-
-        // Move the corners to the new locations.
-        for (i = 0; i < pub.corners.length; i++) {
-            pub.corners[i].point = newCorners[i];
-        }
-
-        // The edge midpoints were computed for the old corners and need
-        // to be recomputed.
-        _(pub.edges).each(function (edge) {
-            if (edge.v0 !== null && edge.v1 !== null) {
-                edge.midpoint = pc.interpolate(edge.v0.point, edge.v1.point, 0.5);
-            }
-        });
-    };
-
-    /**
-     * Create an array of corners that are on land only, for use by
-     * algorithms that work only on land.  We return an array instead
-     * of a vector because the redistribution algorithms want to sort
-     * this array using Array.sortOn.
-     */
-    pub.landCorners = function (corners) {
-        var locations = [];
-        _(corners).each(function (q) {
-            if (!q.ocean && !q.coast) {
-                locations.push(q);
-            }
-        });
-        return locations;
-    };
-
-    /**
-     * Build graph data structure in 'edges', 'centers', 'corners',
-     * based on information in the Voronoi results: point.neighbors
-     * will be a list of neighboring points of the same type (corner
-     * or center); point.edges will be a list of edges that include
-     * that point. Each edge connects to four points: the Voronoi edge
-     * edge.{v0,v1} and its dual Delaunay triangle edge edge.{d0,d1}.
-     * For boundary polygons, the Delaunay edge will have one null
-     * point, and the Voronoi edge may be null.
-     */
-    pub.buildGraph = function (points, voronoi) {
-        var p;
-        var libedges = voronoi.edges();
-        var centerLookup = {}; // Dictionary<Center>
-
-        // Build Center objects for each of the points, and a lookup map
-        // to find those Center objects again as we build the graph
-        _(points).each(function (point) {
-            p = centerModule();
-            p.index = pub.centers.length;
-            p.point = point;
-            p.neighbors = [];
-            p.borders = [];
-            p.corners = [];
-            pub.centers.push(p);
-            centerLookup[pc.hash(point)] = p;
-        });
-
-        // Workaround for Voronoi lib bug: we need to call region()
-        // before Edges or neighboringSites are available
-        _(pub.centers).each(function (p) {
-            voronoi.region(p.point);
-        });
-      
-        // The Voronoi library generates multiple Point objects for
-        // corners, and we need to canonicalize to one Corner object.
-        // To make lookup fast, we keep an array of Points, bucketed by
-        // x value, and then we only have to look at other Points in
-        // nearby buckets. When we fail to find one, we'll create a new
-        // Corner object.
-        var _cornerMap = [];
-        function makeCorner(point) {
-            var q;
-            if (point === null) { return null; }
-            var bucket;
-            for (bucket = core.toInt(point.x) - 1; bucket < core.toInt(point.x) + 2; bucket++) {
-                if (!core.isUndefinedOrNull(_cornerMap[bucket])) {
-                    for (var z = 0; z < _cornerMap[bucket].length; z++) {
-                        q = _cornerMap[bucket][z];
-                        var dx = point.x - q.point.x;
-                        var dy = point.y - q.point.y;
-                        if (dx * dx + dy * dy < 1e-6) {
-                            return q;
-                        }
-                    }
-                }
-            }
-            bucket = core.toInt(point.x);
-            if (core.isUndefinedOrNull(_cornerMap[bucket])) { _cornerMap[bucket] = []; }
-            q = cornerModule();
-            q.index = pub.corners.length;
-            pub.corners.push(q);
-            q.point = point;
-            q.border = (point.x === 0 || point.x === pub.SIZE.width || point.y === 0 || point.y === pub.SIZE.height);
-            q.touches = [];
-            q.protrudes = [];
-            q.adjacent = [];
-            _cornerMap[bucket].push(q);
-            return q;
-        }
-
-        _(libedges).each(function (libedge) {
-            var dedge = libedge.delaunayLine();
-            var vedge = libedge.voronoiEdge();
-
-            // Fill the graph data. Make an Edge object corresponding to
-            // the edge from the voronoi library.
-            var edge = edgeModule();
-            edge.index = pub.edges.length;
-            edge.river = 0;
-            pub.edges.push(edge);
-            edge.midpoint = (vedge.p0 !== null && vedge.p1 !== null) ? pc.interpolate(vedge.p0, vedge.p1, 0.5) : null;
-          
-            // Edges point to corners. Edges point to centers. 
-            edge.v0 = makeCorner(vedge.p0);
-            edge.v1 = makeCorner(vedge.p1);
-            edge.d0 = centerLookup[pc.hash(dedge.p0)];
-            edge.d1 = centerLookup[pc.hash(dedge.p1)];
-
-            // Centers point to edges. Corners point to edges.
-            if (edge.d0 !== null) { edge.d0.borders.push(edge); }
-            if (edge.d1 !== null) { edge.d1.borders.push(edge); }
-            if (edge.v0 !== null) { edge.v0.protrudes.push(edge); }
-            if (edge.v1 !== null) { edge.v1.protrudes.push(edge); }
-
-            function addToCornerList(v, x) {
-                if (x !== null && v.indexOf(x) < 0) { v.push(x); }
-            }
-            function addToCenterList(v, x) {
-                if (x !== null && v.indexOf(x) < 0) { v.push(x); }
-            }
-          
-            // Centers point to centers.
-            if (edge.d0 !== null && edge.d1 !== null) {
-                addToCenterList(edge.d0.neighbors, edge.d1);
-                addToCenterList(edge.d1.neighbors, edge.d0);
-            }
-
-            // Corners point to corners
-            if (edge.v0 !== null && edge.v1 !== null) {
-                addToCornerList(edge.v0.adjacent, edge.v1);
-                addToCornerList(edge.v1.adjacent, edge.v0);
-            }
-
-            // Centers point to corners
-            if (edge.d0 !== null) {
-                addToCornerList(edge.d0.corners, edge.v0);
-                addToCornerList(edge.d0.corners, edge.v1);
-            }
-            if (edge.d1 !== null) {
-                addToCornerList(edge.d1.corners, edge.v0);
-                addToCornerList(edge.d1.corners, edge.v1);
-            }
-
-            // Corners point to centers
-            if (edge.v0 !== null) {
-                addToCenterList(edge.v0.touches, edge.d0);
-                addToCenterList(edge.v0.touches, edge.d1);
-            }
-            if (edge.v1 !== null) {
-                addToCenterList(edge.v1.touches, edge.d0);
-                addToCenterList(edge.v1.touches, edge.d1);
-            }
-        });
-    };
-
-    /**
-     * Determine elevations and water at Voronoi corners. By
-     * construction, we have no local minima. This is important for
-     * the downslope vectors later, which are used in the river
-     * construction algorithm. Also by construction, inlets/bays
-     * push low elevation areas inland, which means many rivers end
-     * up flowing out through them. Also by construction, lakes
-     * often end up on river paths because they don't raise the
-     * elevation as much as other terrain does.
-     */
-    pub.assignCornerElevations = function () {
-        var queue = []; // Array<Corner>
-      
-        _(pub.corners).each(function (q) {
-            q.water = !pub.inside(q.point);
-        });
-
-        _(pub.corners).each(function (q) {
-            // The edges of the map are elevation 0
-            if (q.border) {
-                q.elevation = 0.0;
-                queue.push(q);
-            } else {
-                q.elevation = Number.POSITIVE_INFINITY;
-            }
-        });
-        // Traverse the graph and assign elevations to each point. As we
-        // move away from the map border, increase the elevations. This
-        // guarantees that rivers always have a way down to the coast by
-        // going downhill (no local minima).
-        while (queue.length > 0) {
-            var q = queue.shift();
-            for (var adjacentIndex = 0; adjacentIndex < q.adjacent.length; adjacentIndex++) {
-                var s = q.adjacent[adjacentIndex];
-
-                // Every step up is epsilon over water or 1 over land. The
-                // number doesn't matter because we'll rescale the
-                // elevations later.
-                var newElevation = 0.01 + q.elevation;
-                if (!q.water && !s.water) {
-                    newElevation += 1;
-                }
-
-                // If this point changed, we'll add it to the queue so
-                // that we can process its neighbors too.
-                if (newElevation < s.elevation) {
-                    s.elevation = newElevation;
-                    queue.push(s);
-                }
-            }
-        }
-    };
-
-    /**
-     * Change the overall distribution of elevations so that lower
-     * elevations are more common than higher
-     * elevations. Specifically, we want elevation X to have frequency
-     * (1-X).  To do this we will sort the corners, then set each
-     * corner to its desired elevation.
-     */
-    pub.redistributeElevations = function (locations) {
-        // SCALE_FACTOR increases the mountain area. At 1.0 the maximum
-        // elevation barely shows up on the map, so we set it to 1.1.
-        var SCALE_FACTOR = 1.1;
-        var i, y, x;
-
-        //JavaScript port
-        //locations.sortOn('elevation', Array.NUMERIC);
-        locations.sort(function (c1, c2) {
-            if (c1.elevation > c2.elevation) { return 1; }
-            if (c1.elevation < c2.elevation) { return -1; }
-            if (c1.index > c2.index) { return 1; }
-            if (c1.index < c2.index) { return -1; }
-            return 0;
-        });
-      
-        for (i = 0; i < locations.length; i++) {
-            // Let y(x) be the total area that we want at elevation <= x.
-            // We want the higher elevations to occur less than lower
-            // ones, and set the area to be y(x) = 1 - (1-x)^2.
-            y = i / (locations.length - 1);
-            // Now we have to solve for x, given the known y.
-            //  *  y = 1 - (1-x)^2
-            //  *  y = 1 - (1 - 2x + x^2)
-            //  *  y = 2x - x^2
-            //  *  x^2 - 2x + y = 0
-            // From this we can use the quadratic equation to get:
-            x = Math.sqrt(SCALE_FACTOR) - Math.sqrt(SCALE_FACTOR * (1 - y));
-            if (x > 1.0) { x = 1.0; }  // TODO: does this break downslopes?
-            locations[i].elevation = x;
-        }
-    };
-
-    /**
-     * Change the overall distribution of moisture to be evenly distributed.
-     */
-    pub.redistributeMoisture = function (locations) {
-        var i;
-      
-        locations.sort(function (c1, c2) {
-            if (c1.moisture > c2.moisture) { return 1; }
-            if (c1.moisture < c2.moisture) { return -1; }
-            if (c1.index > c2.index) { return 1; }
-            if (c1.index < c2.index) { return -1; }
-            return 0;
-        });
-      
-        for (i = 0; i < locations.length; i++) {
-            locations[i].moisture = i / (locations.length - 1);
-        }
-    };
-
-    /**
-     * Determine polygon and corner types: ocean, coast, land.
-     */
-    pub.assignOceanCoastAndLand = function (lakeThreshold) {
-        // Compute polygon attributes 'ocean' and 'water' based on the
-        // corner attributes. Count the water corners per
-        // polygon. Oceans are all polygons connected to the edge of the
-        // map. In the first pass, mark the edges of the map as ocean;
-        // in the second pass, mark any water-containing polygon
-        // connected an ocean as ocean.
-        var queue = []; // Array<Center>
-        var p, numWater;
-      
-        _(pub.centers).each(function (p) {
-            numWater = 0;
-            _(p.corners).each(function (q) {
-                if (q.border) {
-                    p.border = true;
-                    p.ocean = true;
-                    q.water = true;
-                    queue.push(p);
-                }
-                if (q.water) {
-                    numWater += 1;
-                }
-            });
-            p.water = (p.ocean || numWater >= p.corners.length * lakeThreshold);
-        });
-        while (queue.length > 0) {
-            p = queue.shift();
-            for (var neighbourIndex = 0; neighbourIndex < p.neighbors.length; neighbourIndex++) {
-                var r = p.neighbors[neighbourIndex];
-                if (r.water && !r.ocean) {
-                    r.ocean = true;
-                    queue.push(r);
-                }
-            }
-        }
-      
-        // Set the polygon attribute 'coast' based on its neighbors. If
-        // it has at least one ocean and at least one land neighbor,
-        // then this is a coastal polygon.
-        _(pub.centers).each(function (p) {
-            var numOcean = 0;
-            var numLand = 0;
-            _(p.neighbors).each(function (r) {
-                numOcean += convert.intFromBoolean(r.ocean);
-                numLand += convert.intFromBoolean(!r.water);
-            });
-            p.coast = (numOcean > 0) && (numLand > 0);
-        });
-
-
-        // Set the corner attributes based on the computed polygon
-        // attributes. If all polygons connected to this corner are
-        // ocean, then it's ocean; if all are land, then it's land;
-        // otherwise it's coast.
-        _(pub.corners).each(function (q) {
-            var numOcean = 0;
-            var numLand = 0;
-            _(q.touches).each(function (p) {
-                numOcean += convert.intFromBoolean(p.ocean);
-                numLand += convert.intFromBoolean(!p.water);
-            });
-            q.ocean = (numOcean === q.touches.length);
-            q.coast = (numOcean > 0) && (numLand > 0);
-            q.water = q.border || ((numLand !== q.touches.length) && !q.coast);
-        });
-    };
-
-    /**
-     * Polygon elevations are the average of the elevations of their corners.
-     */
-    pub.assignPolygonElevations = function () {
-        var sumElevation;
-        _(pub.centers).each(function (p) {
-            sumElevation = 0.0;
-            _(p.corners).each(function (q) {
-                sumElevation += q.elevation;
-            });
-            p.elevation = sumElevation / p.corners.length;
-        });
-    };
-
-    /**
-     * Calculate downslope pointers.  At every point, we point to the
-     * point downstream from it, or to itself.  This is used for
-     * generating rivers and watersheds.
-     */
-    pub.calculateDownslopes = function () {
-        var r;
-      
-        _(pub.corners).each(function (q) {
-            r = q;
-            _(q.adjacent).each(function (s) {
-                if (s.elevation <= r.elevation) {
-                    r = s;
-                }
-            });
-            q.downslope = r;
-        });
-    };
-
-    /**
-     * Calculate the watershed of every land point. The watershed is
-     * the last downstream land point in the downslope graph. TODO:
-     * watersheds are currently calculated on corners, but it'd be
-     * more useful to compute them on polygon centers so that every
-     * polygon can be marked as being in one watershed.
-     */
-    pub.calculateWatersheds = function () {
-        var r, i, changed;
-      
-        // Initially the watershed pointer points downslope one step.      
-        _(pub.corners).each(function (q) {
-            q.watershed = q;
-            if (!q.ocean && !q.coast) {
-                q.watershed = q.downslope;
-            }
-        });
-        // Follow the downslope pointers to the coast. Limit to 100
-        // iterations although most of the time with NUM_POINTS=2000 it
-        // only takes 20 iterations because most points are not far from
-        // a coast.  TODO: can run faster by looking at
-        // p.watershed.watershed instead of p.downslope.watershed.
-        var cornerIndex, q;
-        for (i = 0; i < 100; i++) {
-            changed = false;
-            for (cornerIndex = 0; cornerIndex < pub.corners.length; cornerIndex++) {
-                q = pub.corners[cornerIndex];
-                if (!q.ocean && !q.coast && !q.watershed.coast) {
-                    r = q.downslope.watershed;
-                    if (!r.ocean) { q.watershed = r; }
-                    changed = true;
-                }
-            }
-            if (!changed) { break; }
-        }
-        // How big is each watershed?
-        for (cornerIndex = 0; cornerIndex < pub.corners.length; cornerIndex++) {
-            q = pub.corners[cornerIndex];
-            r = q.watershed;
-            r.watershedSize = 1 + (r.watershedSize || 0);
-        }
-    };
-
-    /**
-     * Create rivers along edges. Pick a random corner point,
-     * then move downslope. Mark the edges and corners as rivers.
-     * @param   riverChance Higher = more rivers.
-     */
-    pub.createRivers = function (riverChance) {
-        riverChance = core.coalesce(riverChance, core.toInt((pub.SIZE.width + pub.SIZE.height) / 4));
-
-        var i, q, edge;
-      
-        for (i = 0; i < riverChance; i++) {
-            q = pub.corners[pub.mapRandom.nextIntRange(0, pub.corners.length - 1)];
-            if (q.ocean || q.elevation < 0.3 || q.elevation > 0.9) { continue; }
-            // Bias rivers to go west: if (q.downslope.x > q.x) continue;
-            while (!q.coast) {
-                if (q === q.downslope) {
-                    break;
-                }
-                edge = pub.lookupEdgeFromCorner(q, q.downslope);
-                edge.river = edge.river + 1;
-                q.river = (q.river || 0) + 1;
-                q.downslope.river = (q.downslope.river || 0) + 1;  // TODO: fix double count
-                q = q.downslope;
-            }
-        }
-    };
-
-    /**
-     * Calculate moisture. Freshwater sources spread moisture: rivers
-     * and lakes (not oceans). Saltwater sources have moisture but do
-     * not spread it (we set it at the end, after propagation).
-     */
-    pub.assignCornerMoisture = function () {
-        var q, newMoisture;
-        var queue = []; // Array<Corner>
-        // Fresh water
-        _(pub.corners).each(function (q) {
-            if ((q.water || q.river > 0) && !q.ocean) {
-                q.moisture = q.river > 0 ? Math.min(3.0, (0.2 * q.river)) : 1.0;
-                queue.push(q);
-            } else {
-                q.moisture = 0.0;
-            }
-        });
-        while (queue.length > 0) {
-            q = queue.shift();
-
-            for (var adjacentIndex = 0; adjacentIndex < q.adjacent.length; adjacentIndex++) {
-                var r = q.adjacent[adjacentIndex];
-                newMoisture = q.moisture * 0.9;
-                if (newMoisture > r.moisture) {
-                    r.moisture = newMoisture;
-                    queue.push(r);
-                }
-            }
-        }
-        // Salt water
-        _(pub.corners).each(function (q) {
-            if (q.ocean || q.coast) {
-                q.moisture = 1.0;
-            }
-        });
-    };
-
-    /**
-     * Polygon moisture is the average of the moisture at corners
-     */
-    pub.assignPolygonMoisture = function () {
-        var sumMoisture;
-        _(pub.centers).each(function (p) {
-            sumMoisture = 0.0;
-            _(p.corners).each(function (q) {
-                if (q.moisture > 1.0) { q.moisture = 1.0; }
-                sumMoisture += q.moisture;
-            });
-            p.moisture = sumMoisture / p.corners.length;
-        });
-    };
-
-    pub.assignBiomes = function () {
-        _(pub.centers).each(function (p) {
-            p.biome = mapModule.getBiome(p);
-        });
-    };
-
-    /**
-     * Look up a Voronoi Edge object given two adjacent Voronoi
-     * polygons, or two adjacent Voronoi corners
-     */
-    pub.lookupEdgeFromCenter = function (p, r) {
-        for (var i = 0; i < p.borders.length; i++) {
-            var edge = p.borders[i];
-            if (edge.d0 === r || edge.d1 === r) { return edge; }
-        }
-        return null;
-    };
-
-    pub.lookupEdgeFromCorner = function (q, s) {
-        for (var i = 0; i < q.protrudes.length; i++) {
-            var edge = q.protrudes[i];
-            if (edge.v0 === s || edge.v1 === s) { return edge; }
-        }
-        return null;
-    };
-
-    /**
-     * Determine whether a given point should be on the island or in the water.
-     */
-    pub.inside = function (p) {
-        return pub.islandShape({ x: 2 * (p.x / pub.SIZE.width - 0.5), y: 2 * (p.y / pub.SIZE.height - 0.5) });
-    };
-
-    pub.reset();
-
-    return pub;
-};
-
-mapModule.DEFAULT_LAKE_THRESHOLD = 0.3;
-mapModule.DEFAULT_LLOYD_ITERATIONS = 2;
-mapModule.DEFAULT_NUMBER_OF_POINTS = 1000;
-
-/**
- * Assign a biome type to each polygon. If it has
- * ocean/coast/water, then that's the biome; otherwise it depends
- * on low/high elevation and low/medium/high moisture. This is
- * roughly based on the Whittaker diagram but adapted to fit the
- * needs of the island map generator.
- */
-mapModule.getBiome = function (p) {
-    if (p.ocean) {
-        return 'OCEAN';
-    } else if (p.water) {
-        if (p.elevation < 0.1) { return 'MARSH'; }
-        if (p.elevation > 0.8) { return 'ICE'; }
-        return 'LAKE';
-    } else if (p.coast) {
-        return 'BEACH';
-    } else if (p.elevation > 0.8) {
-        if (p.moisture > 0.50) { return 'SNOW'; }
-        else if (p.moisture > 0.33) { return 'TUNDRA'; }
-        else if (p.moisture > 0.16) { return 'BARE'; }
-        else { return 'SCORCHED'; }
-    } else if (p.elevation > 0.6) {
-        if (p.moisture > 0.66) { return 'TAIGA'; }
-        else if (p.moisture > 0.33) { return 'SHRUBLAND'; }
-        else { return 'TEMPERATE_DESERT'; }
-    } else if (p.elevation > 0.3) {
-        if (p.moisture > 0.83) { return 'TEMPERATE_RAIN_FOREST'; }
-        else if (p.moisture > 0.50) { return 'TEMPERATE_DECIDUOUS_FOREST'; }
-        else if (p.moisture > 0.16) { return 'GRASSLAND'; }
-        else { return 'TEMPERATE_DESERT'; }
-    } else {
-        if (p.moisture > 0.66) { return 'TROPICAL_RAIN_FOREST'; }
-        else if (p.moisture > 0.33) { return 'TROPICAL_SEASONAL_FOREST'; }
-        else if (p.moisture > 0.16) { return 'GRASSLAND'; }
-        else { return 'SUBTROPICAL_DESERT'; }
-    }
-};
-
-
-// ------------------------------------------------------------------------
-// Richard Janicek's Extensions
-
-mapModule.countLands = function (centers) {
-    return _(_(centers).filter(function (c) { return !c.water; })).size();
-};
-
-/**
- * Rebuilds the map varying the number of points until desired number of land centers are generated or timeout is reached.
- * Not an efficient algorithim, but gets the job done.
- */
-mapModule.tryMutateMapPointsToGetNumberLands = function (map, numberOfLands, timeoutMilliseconds, initialNumberOfPoints, numLloydIterations, lakeThreshold) {
-    timeoutMilliseconds = core.def(timeoutMilliseconds, 10 * 1000);
-    initialNumberOfPoints = core.def(initialNumberOfPoints, mapModule.DEFAULT_NUMBER_OF_POINTS);
-    numLloydIterations = core.def(numLloydIterations, mapModule.DEFAULT_LLOYD_ITERATIONS);
-    lakeThreshold = core.def(lakeThreshold, mapModule.DEFAULT_LAKE_THRESHOLD);
-
-    var pointCount = initialNumberOfPoints;
-    var startTime = Date.now();
-    var targetLandCountFound = false;
-    do {
-        map.go0PlacePoints(pointCount);
-        map.go1ImprovePoints(numLloydIterations);
-        map.go2BuildGraph();
-        map.go3AssignElevations(lakeThreshold);
-        var lands = mapModule.countLands(map.centers);
-        if (lands === numberOfLands) {
-            targetLandCountFound = true;
-        }
-        else {
-            pointCount += (lands < numberOfLands ? 1 : -1);
-        }
-    } while (!targetLandCountFound && Date.now() - startTime < timeoutMilliseconds);
-    
-    return map;
-};
-
-module.exports = mapModule;
-},{"../as3/conversion-core":2,"../as3/point-core":4,"../as3/rectangle":5,"../janicek/core":9,"../nodename/delaunay/voronoi":28,"../polygonal/pm-prng":33,"./graph/center":35,"./graph/corner":36,"./graph/edge":37,"lodash":1}],41:[function(require,module,exports){
-'use strict';
-
-var _ = require('lodash');
-var convert = require('../as3/conversion-core');
-var core = require('../janicek/core');
-var pc = require('../as3/point-core');
-var prng = require('../janicek/pseudo-random-number-generators');
+var convert = require('./as3/conversion-core');
+var core = require('./janicek/core');
+var pc = require('./as3/point-core');
+var prng = require('./janicek/pseudo-random-number-generators');
 
 module.exports = function () {
     var pub = {};
@@ -11475,11 +12228,1186 @@ module.exports.buildNoisyLineSegments = function (seed, A, B, C, D, minLength) {
     points.push(C);
     return points;
 };
-},{"../as3/conversion-core":2,"../as3/point-core":4,"../janicek/core":9,"../janicek/pseudo-random-number-generators":13,"lodash":1}],42:[function(require,module,exports){
+},{"./as3/conversion-core":8,"./as3/point-core":10,"./janicek/core":19,"./janicek/pseudo-random-number-generators":24,"lodash":1}],48:[function(require,module,exports){
+// Factory class to choose points for the graph
+
+// Point selection is random for the original article, with Lloyd
+// Relaxation, but there are other ways of choosing points. Grids in
+// particular can be much simpler to start with, because you don't need
+// Voronoi at all. HOWEVER for ease of implementation, I continue to use
+// Voronoi here, to reuse the graph building code. If you're using a grid,
+// generate the graph directly.
+
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: true, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
+
+'use strict';
+
+var prng = require('./polygonal/pm-prng');
+var rectangle = require('./as3/rectangle');
+var voronoiModule = require('./nodename/delaunay/voronoi');
+
+var api = {
+
+	// The square and hex grid point selection remove randomness from
+	// where the points are; we need to inject more randomness elsewhere
+	// to make the maps look better. I do this in the corner
+	// elevations. However I think more experimentation is needed.
+	needsMoreRandomness: function (fn) {
+		return fn === api.generateSquare || fn === api.generateHexagon;	
+	},
+
+	// Generate points at random locations
+	generateRandom: function (width, height, seed) {
+		return function (numPoints) {
+		  	var mapRandom = prng();
+		  	mapRandom.seed = seed;
+		  	var points = []; // Vector.<Point>
+
+		  	for (var i = 0; i < numPoints; i++) {
+		    	points.push({
+		    		x: mapRandom.nextDoubleRange(10, width - 10),
+		        	y: mapRandom.nextDoubleRange(10, height - 10)
+		    	});
+		  	}
+
+			return points;
+		};
+	},
+
+  	// Improve the random set of points with Lloyd Relaxation
+	generateRelaxed: function (width, height, seed, numLloydRelaxations) {
+	    numLloydRelaxations = numLloydRelaxations || 2;
+	    return function (numPoints) {
+			// We'd really like to generate "blue noise". Algorithms:
+			// 1. Poisson dart throwing: check each new point against all
+			//     existing points, and reject it if it's too close.
+			// 2. Start with a hexagonal grid and randomly perturb points.
+			// 3. Lloyd Relaxation: move each point to the centroid of the
+			//     generated Voronoi polygon, then generate Voronoi again.
+			// 4. Use force-based layout algorithms to push points away.
+			// 5. More at http://www.cs.virginia.edu/~gfx/pubs/antimony/
+			// Option 3 is implemented here. If it's run for too many iterations,
+			// it will turn into a grid, but convergence is very slow, and we only
+			// run it a few times.
+			var points = api.generateRandom(width, height, seed)(numPoints);
+	      	for (var i = 0; i < numLloydRelaxations; i++) {
+	        	var voronoi = voronoiModule.make(points, null, rectangle(0, 0, width, height));
+	        	for (var pointsIndex = 0; pointsIndex < points.length; pointsIndex++) {
+	        		var p = points[pointsIndex];
+		            var region = voronoi.region(p);
+		            p.x = 0.0;
+		            p.y = 0.0;
+		            for (var regionIndex = 0; regionIndex < region.length; regionIndex++) {
+		            	var q = region[regionIndex];
+		                p.x += q.x;
+		                p.y += q.y;
+		            }
+		            p.x /= region.length;
+		            p.y /= region.length;
+		            region.splice(0, region.length);
+	          	}
+	        	voronoi.dispose();
+	      	}
+	      	return points;
+	    };
+  	},
+
+  	// Generate points on a square grid
+	generateSquare: function (width, height) {
+		return function (numPoints) {
+		  	var points = []; // Vector.<Point>
+		  	var n = Math.sqrt(numPoints);
+		  	for (var x = 0; x < n; x++) {
+		    	for (var y = 0; y < n; y++) {
+		      		points.push({
+		      			x: (0.5 + x) / n * width,
+		      			y: (0.5 + y) / n * height
+		      		});
+		    	}
+		  	}
+		  	return points;
+		};
+	},
+
+ 	// Generate points on a hexagon grid
+  	generateHexagon: function (width, height) {
+		return function (numPoints) {
+			var points = []; // Vector.<Point>
+			var n = Math.sqrt(numPoints);
+			for (var x = 0; x < n; x++) {
+				for (var y = 0; y < n; y++) {
+					points.push({
+						x: (0.5 + x) / n * width,
+						y: (0.25 + 0.5 * x % 2 + y) / n * height
+					});
+				}
+			}
+			return points;
+		};
+  	}
+
+};
+
+module.exports = api;
+},{"./as3/rectangle":11,"./nodename/delaunay/voronoi":42,"./polygonal/pm-prng":49}],49:[function(require,module,exports){
+'use strict';
+
+module.exports = function () {
+
+    return {
+
+        /**
+         * set seed with a 31 bit unsigned integer
+         * between 1 and 0X7FFFFFFE inclusive. don't use 0!
+         */
+        seed: 1,
+
+        /**
+         * provides the next pseudorandom number
+         * as a float between nearly 0 and nearly 1.0.
+         */
+        nextDouble: function () {
+            return (this.gen() / 2147483647);
+        },
+
+        /**
+         * provides the next pseudorandom number
+         * as an unsigned integer (31 bits) betweeen
+         * a given range.
+         */
+        nextIntRange: function (min, max) {
+            min -= 0.4999;
+            max += 0.4999;
+            return Math.round(min + ((max - min) * this.nextDouble()));
+        },
+
+        /**
+         * provides the next pseudorandom number
+         * as a float between a given range.
+         */
+        nextDoubleRange: function (min, max) {
+            return min + ((max - min) * this.nextDouble());
+        },
+
+        /**
+         * generator:
+         * new-value = (old-value * 16807) mod (2^31 - 1)
+         */
+        gen: function () {
+            //integer version 1, for max int 2^46 - 1 or larger.
+            this.seed = (this.seed * 16807) % 2147483647;
+            return this.seed;
+            
+            /**
+             * integer version 2, for max int 2^31 - 1 (slowest)
+             */
+            //var test:int = 16807 * (seed % 127773 >> 0) - 2836 * (seed / 127773 >> 0);
+            //return seed = (test > 0 ? test : test + 2147483647);
+            
+            /**
+             * david g. carta's optimisation is 15% slower than integer version 1
+             */
+            //var hi:uint = 16807 * (seed >> 16);
+            //var lo:uint = 16807 * (seed & 0xFFFF) + ((hi & 0x7FFF) << 16) + (hi >> 15);
+            //return seed = (lo > 0x7FFFFFFF ? lo - 0x7FFFFFFF : lo);
+        }
+    };
+};
+},{}],50:[function(require,module,exports){
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: true, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
+
 'use strict';
 
 var _ = require('lodash');
-var core = require('../janicek/core');
+var canvasCore = require('./janicek/canvas');
+var colorModule = require('./janicek/html-color');
+var convert = require('./as3/conversion-core');
+var core = require('./janicek/core');
+var matrix = require('./as3/matrix');
+var pointCore = require('./as3/point-core');
+var vector3d = require('./as3/vector-3d');
+
+exports.graphicsReset = function (c, mapWidth, mapHeight, displayColors) {
+    c.lineWidth = 1.0;
+    c.clearRect(0, 0, 2000, 2000);
+    c.fillStyle = '#bbbbaa';
+    c.fillRect(0, 0, 2000, 2000);
+    c.fillStyle = colorModule.intToHexColor(displayColors.OCEAN);
+    c.fillRect(0, 0, core.toInt(mapWidth), core.toInt(mapHeight));
+};
+
+exports.colorWithSmoothColors = function (color, p, q, edge, displayColors) {
+    if (q !== null && p.water === q.water) {
+        color = colorModule.interpolateColor(displayColors[p.biome], displayColors[q.biome], 0.25);
+    }
+    return color;
+};
+
+exports.renderDebugPolygons = function (context, map, displayColors) {
+
+    var color;
+
+    if (map.centers.length === 0) {
+        // We're still constructing the map so we may have some points
+        
+        context.fillStyle = '#dddddd';
+        context.fillRect(0, 0, core.toInt(map.SIZE.width), core.toInt(map.SIZE.height) /*context.canvas.width, context.canvas.height */); //graphics.drawRect(0, 0, SIZE, SIZE);
+        _(map.points).each(function (point) {
+            context.beginPath();
+            context.strokeStyle = '#000000';
+            context.fillStyle = '#000000';
+            context.arc(point.x, point.y, 1.3, Math.PI, 2 * Math.PI, false);
+            context.closePath();
+            context.fill();
+            context.stroke();
+        });
+    }
+    
+    _(map.centers).each(function (p) {
+        color = !_.isNull(p.biome) ? displayColors[p.biome] : (p.ocean ? displayColors.OCEAN : p.water ? displayColors.RIVER : 0xffffff);
+      
+        //Draw shape
+        context.beginPath();
+        _(p.borders).each(function (edge) {
+            if (!_.isNull(edge.v0) && !_.isNull(edge.v1)) {
+                context.moveTo(p.point.x, p.point.y);
+                context.lineTo(edge.v0.point.x, edge.v0.point.y);
+                context.lineTo(edge.v1.point.x, edge.v1.point.y);
+            }
+        });
+        context.closePath();
+        context.fillStyle = colorModule.intToHexColor(colorModule.interpolateColor(color, 0xdddddd, 0.2));
+        context.fill();
+
+        //Draw borders
+        _(p.borders).each(function (edge) {
+            if (!_.isNull(edge.v0) && !_.isNull(edge.v1)) {
+                context.beginPath();
+                context.moveTo(edge.v0.point.x, edge.v0.point.y);
+                if (edge.river > 0) {
+                    context.lineWidth = 1;
+                    context.strokeStyle = colorModule.intToHexColor(displayColors.RIVER);
+                } else {
+                    context.lineWidth = 0.1;
+                    context.strokeStyle = '#000000';
+                }
+                context.lineTo(edge.v1.point.x, edge.v1.point.y);
+                context.closePath();
+                context.stroke();
+            }
+        });
+        
+        context.beginPath();
+        context.fillStyle = (p.water ? '#003333' : '#000000');
+        context.globalAlpha = 0.7;
+        context.arc(p.point.x, p.point.y, 1.3, Math.PI, 2 * Math.PI, false);
+        context.closePath();
+        context.fill();
+        context.globalAlpha = 1.0;
+        _(p.corners).each(function (q) {
+            context.fillStyle = q.water ? '#0000ff' : '#009900';
+            context.fillRect(q.point.x - 0.7, q.point.y - 0.7, 1.5, 1.5);
+        });
+    });
+};
+
+// Render the paths from each polygon to the ocean, showing watersheds.
+exports.renderWatersheds = function (graphics, map, watersheds) {
+    var edge, w0, w1;
+
+    _(map.edges).each(function (edge) {
+        if (edge.d0 && edge.d1 && edge.v0 && edge.v1 && !edge.d0.ocean && !edge.d1.ocean) {
+            w0 = watersheds.watersheds[edge.d0.index];
+            w1 = watersheds.watersheds[edge.d1.index];
+            if (w0 !== w1) {
+                graphics.beginPath();
+                //graphics.lineStyle(3.5, 0x000000, 0.1 * Math.sqrt((map.corners[w0].watershedSize || 1) + (map.corners[w1].watershed.watershedSize || 1)));
+                graphics.lineWidth = 3.5;
+                graphics.strokeStyle = colorModule.rgba(0, 0, 0, 0.1 * Math.sqrt((core.coalesce(map.corners[w0].watershedSize, 1)) + (core.coalesce(map.corners[w1].watershed.watershedSize, 1))));
+                graphics.moveTo(edge.v0.point.x, edge.v0.point.y);
+                graphics.lineTo(edge.v1.point.x, edge.v1.point.y);
+                graphics.closePath(); //graphics.lineStyle();
+                graphics.stroke();
+            }
+        }
+    });
+
+    for (edge in map.edges) {
+        if (convert.booleanFromInt(edge.river)) {
+            graphics.beginPath();
+            //graphics.lineStyle(1.0, 0x6699ff);
+            graphics.lineWidth = 1.0;
+            graphics.strokeStyle = '#6699ff';
+            graphics.moveTo(edge.v0.point.x, edge.v0.point.y);
+            graphics.lineTo(edge.v1.point.x, edge.v1.point.y);
+            //graphics.lineStyle();
+            graphics.closePath();
+            graphics.stroke();
+        }
+    }
+};
+
+function drawPathForwards(graphics, path) {
+    for (var i = 0; i < path.length; i++) {
+        graphics.lineTo(path[i].x, path[i].y);
+    }
+}
+
+// Helper function for drawing triangles with gradients. This
+// function sets up the fill on the graphics object, and then
+// calls fillFunction to draw the desired path.
+function drawGradientTriangle(graphics, v1, v2, v3, colors, fillFunction, fillX, fillY) {
+    var m = matrix();
+
+    // Center of triangle:
+    var V = v1.add(v2).add(v3);
+    V.scaleBy(1 / 3.0);
+
+    // Normal of the plane containing the triangle:
+    var N = v2.subtract(v1).crossProduct(v3.subtract(v1));
+    N.normalize();
+
+    // Gradient vector in x-y plane pointing in the direction of increasing z
+    var G = vector3d(-N.x / N.z, -N.y / N.z, 0);
+
+    // Center of the color gradient
+    var C = vector3d(V.x - G.x * ((V.z - 0.5) / G.length / G.length), V.y - G.y * ((V.z - 0.5) / G.length / G.length));
+
+    if (G.length < 1e-6) {
+        // If the gradient vector is small, there's not much
+        // difference in colors across this triangle. Use a plain
+        // fill, because the numeric accuracy of 1/G.length is not to
+        // be trusted.  NOTE: only works for 1, 2, 3 colors in the array
+        var color = colors[0];
+        if (colors.length === 2) {
+            color = colorModule.interpolateColor(colors[0], colors[1], V.z);
+        } else if (colors.length === 3) {
+            if (V.z < 0.5) {
+                color = colorModule.interpolateColor(colors[0], colors[1], V.z * 2);
+            } else {
+                color = colorModule.interpolateColor(colors[1], colors[2], V.z * 2 - 1);
+            }
+        }
+        graphics.fillStyle = colorModule.intToHexColor(color); //graphics.beginFill(color);
+    } else {
+        // The gradient box is weird to set up, so we let Flash set up
+        // a basic matrix and then we alter it:
+        m.createGradientBox(1, 1, 0, 0, 0);
+        m.translate(-0.5, -0.5);
+        m.scale((1 / G.length), (1 / G.length));
+        m.rotate(Math.atan2(G.y, G.x));
+        m.translate(C.x, C.y);
+        var alphas = _(colors).map(function (c) { return 1.0; });
+        var spread = _(colors).map(function (c, index) { return 255 * index / (colors.length - 1); });
+        //graphics.beginGradientFill(GradientType.LINEAR, colors, alphas, spread, m, SpreadMethod.PAD);
+    }
+    fillFunction(graphics, fillX, fillY);
+    graphics.fill(); //graphics.endFill();
+}
+
+// Render the interior of polygons
+exports.renderPolygons = function (graphics, colors, gradientFillProperty, colorOverrideFunction, map, noisyEdges)  {
+    // My Voronoi polygon rendering doesn't handle the boundary
+    // polygons, so I just fill everything with ocean first.
+    graphics.fillStyle = colorModule.intToHexColor(colors.OCEAN);
+    graphics.fillRect(0, 0, core.toInt(map.SIZE.width), core.toInt(map.SIZE.height));
+ 
+    var drawPath0 = function (graphics, x, y) {
+        var path = noisyEdges.path0[edge.index];
+        graphics.moveTo(x, y);
+        graphics.lineTo(path[0].x, path[0].y);
+        drawPathForwards(graphics, path);
+        graphics.lineTo(x, y);
+    };
+
+    var drawPath1 = function (graphics, x, y) {
+        var path = noisyEdges.path1[edge.index];
+        graphics.moveTo(x, y);
+        graphics.lineTo(path[0].x, path[0].y);
+        drawPathForwards(graphics, path);
+        graphics.lineTo(x, y);
+    };
+
+    for (var centerIndex = 0; centerIndex < map.centers.length; centerIndex++) {
+        var p = map.centers[centerIndex];
+        for (var neighborIndex = 0; neighborIndex < p.neighbors.length; neighborIndex++) {
+            var r = p.neighbors[neighborIndex];
+            var edge = map.lookupEdgeFromCenter(p, r);
+            var color = core.coalesce(colors[p.biome], 0);
+            if (colorOverrideFunction !== null) {
+                color = colorOverrideFunction(color, p, r, edge, colors);
+            }
+
+            if (core.isUndefinedOrNull(noisyEdges.path0[edge.index]) || core.isUndefinedOrNull(noisyEdges.path1[edge.index])) {
+                // It's at the edge of the map, where we don't have
+                // the noisy edges computed. TODO: figure out how to
+                // fill in these edges from the voronoi library.
+                continue;
+            }
+
+            if (!core.isUndefinedOrNull(gradientFillProperty)) {
+                // We'll draw two triangles: center - corner0 -
+                // midpoint and center - midpoint - corner1.
+                var corner0 = edge.v0;
+                var corner1 = edge.v1;
+
+                // We pick the midpoint elevation/moisture between
+                // corners instead of between polygon centers because
+                // the resulting gradients tend to be smoother.
+                var midpoint = edge.midpoint;
+                var midpointAttr = 0.5 * (corner0[gradientFillProperty] + corner1[gradientFillProperty]);
+                drawGradientTriangle(
+                    graphics,
+                    vector3d(p.point.x, p.point.y, p[gradientFillProperty]),
+                    vector3d(corner0.point.x, corner0.point.y, corner0[gradientFillProperty]),
+                    vector3d(midpoint.x, midpoint.y, midpointAttr),
+                    [colors.GRADIENT_LOW, colors.GRADIENT_HIGH],
+                    drawPath0, p.point.x, p.point.y
+                );
+                drawGradientTriangle(
+                    graphics,
+                    vector3d(p.point.x, p.point.y, p[gradientFillProperty]),
+                    vector3d(midpoint.x, midpoint.y, midpointAttr),
+                    vector3d(corner1.point.x, corner1.point.y, corner1[gradientFillProperty]),
+                    [colors.GRADIENT_LOW, colors.GRADIENT_HIGH],
+                    drawPath1, p.point.x, p.point.y
+                );
+            } else {
+                graphics.fillStyle = colorModule.intToHexColor(color);
+                graphics.strokeStyle = graphics.fillStyle;
+                graphics.beginPath();
+                drawPath0(graphics, p.point.x, p.point.y);
+                drawPath1(graphics, p.point.x, p.point.y);
+                graphics.closePath();
+                graphics.fill();
+                graphics.stroke();
+            }
+        }
+    }
+};
+
+// Render bridges across every narrow river edge. Bridges are
+// straight line segments perpendicular to the edge. Bridges are
+// drawn after rivers. TODO: sometimes the bridges aren't long
+// enough to cross the entire noisy line river. TODO: bridges
+// don't line up with curved road segments when there are
+// roads. It might be worth making a shader that draws the bridge
+// only when there's water underneath.
+exports.renderBridges = function (graphics, map, roads, colors) {
+    _(map.edges).each(function (edge) {
+        if (edge.river > 0 && edge.river < 4 &&
+            !edge.d0.water && !edge.d1.water &&
+            (edge.d0.elevation > 0.05 || edge.d1.elevation > 0.05)) {
+
+            var n = { x: -(edge.v1.point.y - edge.v0.point.y), y: edge.v1.point.x - edge.v0.point.x };
+            pointCore.normalize(n, 0.25 + (!_.isNull(roads.road[edge.index]) ? 0.5 : 0) + 0.75 * Math.sqrt(edge.river));
+            graphics.beginPath();
+            graphics.lineWidth = 1.1;
+            graphics.strokeStyle = colorModule.intToHexColor(colors.BRIDGE);
+            graphics.lineCap = 'square';
+            graphics.moveTo(edge.midpoint.x - n.x, edge.midpoint.y - n.y);
+            graphics.lineTo(edge.midpoint.x + n.x, edge.midpoint.y + n.y);
+            graphics.closePath();
+            graphics.stroke();
+        }
+    });
+};
+
+// Render roads. We draw these before polygon edges, so that rivers overwrite roads.
+exports.renderRoads = function (graphics, map, roads, colors) {
+    // First draw the roads, because any other feature should draw
+    // over them. Also, roads don't use the noisy lines.
+    var A, B, C;
+    var i, j, d, edge1, edge2, edges;
+
+    // Helper function: find the normal vector across edge 'e' and
+    // make sure to point it in a direction towards 'c'.
+    function normalTowards(e, c, len) {
+        // Rotate the v0-->v1 vector by 90 degrees:
+        var n = { x: -(e.v1.point.y - e.v0.point.y), y: e.v1.point.x - e.v0.point.x };
+        // Flip it around it if doesn't point towards c
+        var d = pointCore.subtract(c, e.midpoint);
+        if (n.x * d.x + n.y * d.y < 0) {
+            n.x = -n.x;
+            n.y = -n.y;
+        }
+        pointCore.normalize(n, len);
+        return n;
+    }
+  
+    _(map.centers).each(function (p) {
+        if (!core.isUndefinedOrNull(roads.roadConnections[p.index])) {
+            if (roads.roadConnections[p.index].length === 2) {
+                // Regular road: draw a spline from one edge to the other.
+                edges = p.borders;
+                for (i = 0; i < edges.length; i++) {
+                    edge1 = edges[i];
+                    if (roads.road[edge1.index] > 0) {
+                        for (j = i + 1; j < edges.length; j++) {
+                            edge2 = edges[j];
+                            if (roads.road[edge2.index] > 0) {
+                                // The spline connects the midpoints of the edges
+                                // and at right angles to them. In between we
+                                // generate two control points A and B and one
+                                // additional vertex C.  This usually works but
+                                // not always.
+                                d = 0.5 * Math.min(
+                                    pointCore.distanceFromOrigin(pointCore.subtract(edge1.midpoint, p.point)),
+                                    pointCore.distanceFromOrigin(pointCore.subtract(edge2.midpoint, p.point))
+                                );
+                                A = pointCore.add(normalTowards(edge1, p.point, d), edge1.midpoint);
+                                B = pointCore.add(normalTowards(edge2, p.point, d), edge2.midpoint);
+                                C = pointCore.interpolate(A, B, 0.5);
+                                graphics.beginPath();
+                                graphics.lineWidth = 1.1;
+                                graphics.strokeStyle = colorModule.intToHexColor(colors['ROAD' + roads.road[edge1.index]]);
+                                graphics.moveTo(edge1.midpoint.x, edge1.midpoint.y);
+                                graphics.quadraticCurveTo(A.x, A.y, C.x, C.y);
+                                graphics.moveTo(C.x, C.y);
+                                graphics.lineWidth = 1.1;
+                                graphics.strokeStyle = colorModule.intToHexColor(colors['ROAD' + roads.road[edge2.index]]);
+                                graphics.quadraticCurveTo(B.x, B.y, edge2.midpoint.x, edge2.midpoint.y);
+                                graphics.stroke();
+                                graphics.closePath();
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Intersection or dead end: draw a road spline from
+                // each edge to the center
+                _(p.borders).each(function (edge1) {
+                    if (roads.road[edge1.index] > 0) {
+                        d = 0.25 * pointCore.distanceFromOrigin(pointCore.subtract(edge1.midpoint, p.point));
+                        A = pointCore.add(normalTowards(edge1, p.point, d), edge1.midpoint);
+                        graphics.beginPath();
+                        graphics.lineWidth = 1.4;
+                        graphics.strokeStyle = colorModule.intToHexColor(colors['ROAD' + roads.road[edge1.index]]);
+                        graphics.moveTo(edge1.midpoint.x, edge1.midpoint.y);
+                        graphics.quadraticCurveTo(A.x, A.y, p.point.x, p.point.y);
+                        graphics.stroke();
+                        graphics.closePath();
+                    }
+                });
+            }
+        }
+    });
+};
+
+function drawPathBackwards(graphics, path) {
+    var i = path.length - 1;
+    while (i >= 0) {
+        graphics.lineTo(path[i].x, path[i].y);
+        i--;
+    }
+}
+
+// Render the exterior of polygons: coastlines, lake shores,
+// rivers, lava fissures. We draw all of these after the polygons
+// so that polygons don't overwrite any edges.
+exports.renderEdges = function (graphics, colors, map, noisyEdges, lava, renderRivers) {
+    renderRivers = core.def(renderRivers, true);
+    var edge;
+    
+    for (var centerIndex = 0; centerIndex < map.centers.length; centerIndex++) {
+        var p = map.centers[centerIndex];
+        for (var neighborIndex = 0; neighborIndex < p.neighbors.length; neighborIndex++) {
+            var r = p.neighbors[neighborIndex];
+            edge = map.lookupEdgeFromCenter(p, r);
+            if (core.isUndefinedOrNull(noisyEdges.path0[edge.index]) || core.isUndefinedOrNull(noisyEdges.path1[edge.index])) {
+                // It's at the edge of the map
+                continue;
+            }
+            if (p.ocean !== r.ocean) {
+                // One side is ocean and the other side is land -- coastline
+                graphics.lineWidth = 2;
+                graphics.strokeStyle = colorModule.intToHexColor(colors.COAST);
+            } else if ((convert.intFromBoolean(p.water) > 0) !== (convert.intFromBoolean(r.water) > 0) && p.biome !== 'ICE' && r.biome !== 'ICE') {
+                // Lake boundary
+                graphics.lineWidth = 1;
+                graphics.strokeStyle = colorModule.intToHexColor(colors.LAKESHORE);
+            } else if (p.water || r.water) {
+                // Lake interior – we don't want to draw the rivers here
+                continue;
+            } else if (lava.lava[edge.index]) {
+                // Lava flow
+                graphics.lineWidth = 1;
+                graphics.strokeStyle = colorModule.intToHexColor(colors.LAVA);
+            } else if (edge.river > 0 && renderRivers) {
+                // River edge
+                graphics.lineWidth = Math.sqrt(edge.river);
+                graphics.strokeStyle = colorModule.intToHexColor(colors.RIVER);
+            } else {
+                continue;
+            }
+            
+            graphics.beginPath();
+            graphics.moveTo(noisyEdges.path0[edge.index][0].x, noisyEdges.path0[edge.index][0].y);
+            drawPathForwards(graphics, noisyEdges.path0[edge.index]);
+            drawPathBackwards(graphics, noisyEdges.path1[edge.index]);
+            graphics.stroke();
+            graphics.closePath();
+        }
+    }
+};
+
+exports.renderAllEdges = function (graphics, color, alpha, map, noisyEdges) {
+    var edge;
+
+    graphics.lineWidth = 5;
+    graphics.strokeStyle = colorModule.intToHexColor(color);
+    var savedGlobalAlpha = graphics.globalAlpha;
+    graphics.globalAlpha = alpha;
+
+    for (var centerIndex = 0; centerIndex < map.centers.length; centerIndex++) {
+        var p = map.centers[centerIndex];
+        for (var neighborIndex = 0; neighborIndex < p.neighbors.length; neighborIndex++) {
+            var r = p.neighbors[neighborIndex];
+            edge = map.lookupEdgeFromCenter(p, r);
+
+            if (core.isUndefinedOrNull(noisyEdges.path0[edge.index]) || core.isUndefinedOrNull(noisyEdges.path1[edge.index]) || p.water) {
+                // It's at the edge of the map or water
+                continue;
+            }
+
+            // edge
+
+            graphics.beginPath();
+            graphics.moveTo(noisyEdges.path0[edge.index][0].x, noisyEdges.path0[edge.index][0].y);
+            drawPathForwards(graphics, noisyEdges.path0[edge.index]);
+            drawPathBackwards(graphics, noisyEdges.path1[edge.index]);
+            graphics.stroke();
+            graphics.closePath();
+        }
+    }
+
+    graphics.globalAlpha = savedGlobalAlpha;
+};
+
+exports.addNoise = function (context) {
+    canvasCore.addNoiseToCanvas(context, 666, 10, true);
+};
+},{"./as3/conversion-core":8,"./as3/matrix":9,"./as3/point-core":10,"./as3/vector-3d":12,"./janicek/canvas":18,"./janicek/core":19,"./janicek/html-color":21,"lodash":1}],51:[function(require,module,exports){
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: true, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
+
+'use strict';
+
+var _ = require('lodash');
+var colorModule = require('./janicek/html-color');
+var vector3d = require('./as3/vector-3d');
+
+var lightVector = vector3d(-1, -1, 0);
+
+function calculateLighting(p, r, s) {
+    var A = vector3d(p.point.x, p.point.y, p.elevation);
+    var B = vector3d(r.point.x, r.point.y, r.elevation);
+    var C = vector3d(s.point.x, s.point.y, s.elevation);
+    var normal = B.subtract(A).crossProduct(C.subtract(A));
+    if (normal.z < 0) { normal.scaleBy(-1); }
+    normal.normalize();
+    var light = 0.5 + 35 * normal.dotProduct(lightVector);
+    if (light < 0) { light = 0; }
+    if (light > 1) { light = 1; }
+    return light;
+}
+
+exports.colorWithSlope = function (color, p, q, edge, displayColors) {
+    var r = edge.v0;
+    var s = edge.v1;
+    if (_.isNull(r) || _.isNull(s)) {
+        // Edge of the map
+        return displayColors.OCEAN;
+    } else if (p.water) {
+        return color;
+    }
+
+    if (q !== null && p.water === q.water) {
+        color = colorModule.interpolateColor(color, displayColors[q.biome], 0.4);
+    }
+    var colorLow = colorModule.interpolateColor(color, 0x333333, 0.7);
+    var colorHigh = colorModule.interpolateColor(color, 0xffffff, 0.3);
+    var light = calculateLighting(p, r, s);
+    if (light < 0.5) {
+        return colorModule.interpolateColor(colorLow, color, light * 2);
+    } else {
+        return colorModule.interpolateColor(color, colorHigh, light * 2 - 1);
+    }
+};
+},{"./as3/vector-3d":12,"./janicek/html-color":21,"lodash":1}],52:[function(require,module,exports){
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: true, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
+
+'use strict';
+
+var _ = require('lodash');
+var colorModule = require('./janicek/html-color');
+var convert = require('./as3/conversion-core');
+var core = require('./janicek/core');
+var PIXI = require('pixi.js');
+var pointCore = require('./as3/point-core');
+var Shape = require('shape2d');
+var NoiseFilter = require('pixi-noise-filter');
+
+exports.graphicsReset = function (context, mapWidth, mapHeight, displayColors) {
+	context.stage = new PIXI.Stage(displayColors.OCEAN);
+    context.root = new PIXI.DisplayObjectContainer();
+    context.stage.addChild(context.root);
+	context.renderer.render(context.stage);
+};
+
+// Render the polygons so that each can be seen clearly
+exports.renderDebugPolygons = function (context, map, displayColors) {
+	
+    var color;
+
+    if (map.centers.length === 0) {
+        // We're still constructing the map so we may have some points
+        
+        context.fillStyle = '#dddddd';
+        context.fillRect(0, 0, core.toInt(map.SIZE.width), core.toInt(map.SIZE.height) /*context.canvas.width, context.canvas.height */); //graphics.drawRect(0, 0, SIZE, SIZE);
+        _(map.points).each(function (point) {
+            context.beginPath();
+            context.strokeStyle = '#000000';
+            context.fillStyle = '#000000';
+            context.arc(point.x, point.y, 1.3, Math.PI, 2 * Math.PI, false);
+            context.closePath();
+            context.fill();
+            context.stroke();
+        });
+    }
+    
+    var graphics = new PIXI.Graphics();
+
+    _(map.centers).each(function (p) {
+        color = !_.isNull(p.biome) ? displayColors[p.biome] : (p.ocean ? displayColors.OCEAN : p.water ? displayColors.RIVER : 0xffffff);
+
+        //Draw shape
+        graphics.lineStyle();
+        graphics.beginFill(colorModule.interpolateColor(color, 0xdddddd, 0.2)); 
+        _(p.borders).each(function (edge) {
+            if (edge.v0 && edge.v1) {
+                graphics.moveTo(p.point.x, p.point.y);
+                graphics.lineTo(edge.v0.point.x, edge.v0.point.y);
+                graphics.lineTo(edge.v1.point.x, edge.v1.point.y);
+                graphics.lineTo(p.point.x, p.point.y);
+            }
+        });
+        graphics.endFill();
+
+        //Draw borders
+        _(p.borders).each(function (edge) {
+            if (edge.v0 && edge.v1) {
+                if (edge.river > 0) {
+                	graphics.lineStyle(2, displayColors.RIVER);
+                } else {
+                	graphics.lineStyle(1, 0x000000, 0.2);
+                }
+                graphics.moveTo(edge.v0.point.x, edge.v0.point.y);
+                graphics.lineTo(edge.v1.point.x, edge.v1.point.y);
+            }
+        });
+
+        graphics.beginFill(p.water ? 0x003333 : 0x000000, 0.7);
+        graphics.drawCircle(p.point.x, p.point.y, 1.3, 1.3);
+        graphics.endFill();
+
+        context.root.addChild(graphics);
+        graphics = new PIXI.Graphics();        
+    });
+
+    _(map.centers).each(function (p) {
+        _(p.corners).each(function (q) {
+        	graphics.beginFill(q.water ? 0x0000ff : 0x009900);
+            graphics.drawRect(q.point.x - 1.0, q.point.y - 1.0, 2.0, 2.0);
+            graphics.endFill();
+        });
+    });
+
+	context.root.addChild(graphics);
+	context.renderer.render(context.stage);
+};
+
+// Render the paths from each polygon to the ocean, showing watersheds.
+exports.renderWatersheds = function (context, map, watersheds) {
+    var edge, w0, w1;
+
+    var graphics = new PIXI.Graphics();
+
+    _(map.edges).each(function (edge) {
+        if (edge.d0 && edge.d1 && edge.v0 && edge.v1 && !edge.d0.ocean && !edge.d1.ocean) {
+            w0 = watersheds.watersheds[edge.d0.index];
+            w1 = watersheds.watersheds[edge.d1.index];
+            if (w0 !== w1) {
+                graphics.lineStyle(3.5, 0x000000, 0.1 * Math.sqrt((map.corners[w0].watershedSize || 1) + (map.corners[w1].watershed.watershedSize || 1)));
+                graphics.moveTo(edge.v0.point.x, edge.v0.point.y);
+                graphics.lineTo(edge.v1.point.x, edge.v1.point.y);
+            }
+        }
+    });
+
+    for (edge in map.edges) {
+        if (convert.booleanFromInt(edge.river)) {
+            graphics.lineStyle(1.0, 0x6699ff);
+            graphics.moveTo(edge.v0.point.x, edge.v0.point.y);
+            graphics.lineTo(edge.v1.point.x, edge.v1.point.y);
+        }
+    }
+
+    context.root.addChild(graphics);
+    context.renderer.render(context.stage);
+};
+
+function drawPathForwards(graphics, path, step) {
+    for (var i = 0; i < path.length; i++) {
+        graphics.lineTo(path[i].x, path[i].y);
+        step && step(i, path[i].x, path[i].y);
+    }
+}
+
+function drawPathBackwards(graphics, path, step) {
+    for (var i = path.length - 1; i >= 0; i--) {
+        graphics.lineTo(path[i].x, path[i].y);
+        step && step(i, path[i].x, path[i].y);
+    }
+}
+
+// Render the interior of polygons
+exports.renderPolygons = function (context, colors, gradientFillProperty, colorOverrideFunction, map, noisyEdges)  {
+
+    var graphics = new PIXI.Graphics();
+
+    // My Voronoi polygon rendering doesn't handle the boundary
+    // polygons, so I just fill everything with ocean first.
+    graphics.drawRect(0, 0, map.SIZE.width, map.SIZE.height);
+
+    context.root.addChild(graphics);
+    graphics = new PIXI.Graphics();
+ 
+    var drawPath0 = function (graphics, x, y) {
+        var path = noisyEdges.path0[edge.index];
+        graphics.moveTo(x, y);
+        graphics.lineTo(path[0].x, path[0].y);
+        drawPathForwards(graphics, path);
+        graphics.lineTo(x, y);
+    };
+
+    var drawPath1 = function (graphics, x, y) {
+        var path = noisyEdges.path1[edge.index];
+        graphics.moveTo(x, y);
+        graphics.lineTo(path[0].x, path[0].y);
+        drawPathForwards(graphics, path);
+        graphics.lineTo(x, y);
+    };
+
+    for (var centerIndex = 0; centerIndex < map.centers.length; centerIndex++) {
+        var p = map.centers[centerIndex];
+        for (var neighborIndex = 0; neighborIndex < p.neighbors.length; neighborIndex++) {
+            var r = p.neighbors[neighborIndex];
+            var edge = map.lookupEdgeFromCenter(p, r);
+            var color = core.coalesce(colors[p.biome], 0);
+            if (colorOverrideFunction !== null) {
+                color = colorOverrideFunction(color, p, r, edge, colors);
+            }
+
+            if (core.isUndefinedOrNull(noisyEdges.path0[edge.index]) || core.isUndefinedOrNull(noisyEdges.path1[edge.index])) {
+                // It's at the edge of the map, where we don't have
+                // the noisy edges computed. TODO: figure out how to
+                // fill in these edges from the voronoi library.
+                continue;
+            }
+
+            if (!core.isUndefinedOrNull(gradientFillProperty)) {
+                // We'll draw two triangles: center - corner0 -
+                // midpoint and center - midpoint - corner1.
+                var corner0 = edge.v0;
+                var corner1 = edge.v1;
+
+                // We pick the midpoint elevation/moisture between
+                // corners instead of between polygon centers because
+                // the resulting gradients tend to be smoother.
+                var midpoint = edge.midpoint;
+                var midpointAttr = 0.5 * (corner0[gradientFillProperty] + corner1[gradientFillProperty]);
+                drawGradientTriangle(
+                    graphics,
+                    vector3d(p.point.x, p.point.y, p[gradientFillProperty]),
+                    vector3d(corner0.point.x, corner0.point.y, corner0[gradientFillProperty]),
+                    vector3d(midpoint.x, midpoint.y, midpointAttr),
+                    [colors.GRADIENT_LOW, colors.GRADIENT_HIGH],
+                    drawPath0, p.point.x, p.point.y
+                );
+                drawGradientTriangle(
+                    graphics,
+                    vector3d(p.point.x, p.point.y, p[gradientFillProperty]),
+                    vector3d(midpoint.x, midpoint.y, midpointAttr),
+                    vector3d(corner1.point.x, corner1.point.y, corner1[gradientFillProperty]),
+                    [colors.GRADIENT_LOW, colors.GRADIENT_HIGH],
+                    drawPath1, p.point.x, p.point.y
+                );
+            } else if (color !== colors.OCEAN) {
+                graphics.beginFill(color);
+                drawPath0(graphics, p.point.x, p.point.y);
+                drawPath1(graphics, p.point.x, p.point.y);
+                graphics.endFill();
+            }
+        }
+    }
+
+    context.root.addChild(graphics);
+    context.renderer.render(context.stage);
+};
+
+// Render bridges across every narrow river edge. Bridges are
+// straight line segments perpendicular to the edge. Bridges are
+// drawn after rivers. TODO: sometimes the bridges aren't long
+// enough to cross the entire noisy line river. TODO: bridges
+// don't line up with curved road segments when there are
+// roads. It might be worth making a shader that draws the bridge
+// only when there's water underneath.
+exports.renderBridges = function (context, map, roads, colors) {
+    var graphics = new PIXI.Graphics();
+
+    _(map.edges).each(function (edge) {
+        if (edge.river > 0 && edge.river < 4 &&
+            !edge.d0.water && !edge.d1.water &&
+            (edge.d0.elevation > 0.05 || edge.d1.elevation > 0.05)) {
+
+            var n = { x: -(edge.v1.point.y - edge.v0.point.y), y: edge.v1.point.x - edge.v0.point.x };
+            pointCore.normalize(n, 0.25 + (!_.isNull(roads.road[edge.index]) ? 0.5 : 0) + 0.75 * Math.sqrt(edge.river));
+
+            graphics.lineStyle(1.1, colors.BRIDGE);
+            graphics.moveTo(edge.midpoint.x - n.x, edge.midpoint.y - n.y);
+            graphics.lineTo(edge.midpoint.x + n.x, edge.midpoint.y + n.y);
+        }
+    });
+
+    context.root.addChild(graphics);
+    context.renderer.render(context.stage);    
+};
+
+// Render roads. We draw these before polygon edges, so that rivers overwrite roads.
+exports.renderRoads = function (context, map, roads, colors) {
+
+    var graphics = new PIXI.Graphics();
+
+    // First draw the roads, because any other feature should draw
+    // over them. Also, roads don't use the noisy lines.
+    var A, B, C;
+    var i, j, d, edge1, edge2, edges;
+
+    // Helper function: find the normal vector across edge 'e' and
+    // make sure to point it in a direction towards 'c'.
+    function normalTowards(e, c, len) {
+        // Rotate the v0-->v1 vector by 90 degrees:
+        var n = { x: -(e.v1.point.y - e.v0.point.y), y: e.v1.point.x - e.v0.point.x };
+        // Flip it around it if doesn't point towards c
+        var d = pointCore.subtract(c, e.midpoint);
+        if (n.x * d.x + n.y * d.y < 0) {
+            n.x = -n.x;
+            n.y = -n.y;
+        }
+        pointCore.normalize(n, len);
+        return n;
+    }
+  
+    _(map.centers).each(function (p) {
+        if (!core.isUndefinedOrNull(roads.roadConnections[p.index])) {
+            if (roads.roadConnections[p.index].length === 2) {
+                // Regular road: draw a spline from one edge to the other.
+                edges = p.borders;
+                for (i = 0; i < edges.length; i++) {
+                    edge1 = edges[i];
+                    if (roads.road[edge1.index] > 0) {
+                        for (j = i + 1; j < edges.length; j++) {
+                            edge2 = edges[j];
+                            if (roads.road[edge2.index] > 0) {
+                                // The spline connects the midpoints of the edges
+                                // and at right angles to them. In between we
+                                // generate two control points A and B and one
+                                // additional vertex C.  This usually works but
+                                // not always.
+                                d = 0.5 * Math.min(
+                                    pointCore.distanceFromOrigin(pointCore.subtract(edge1.midpoint, p.point)),
+                                    pointCore.distanceFromOrigin(pointCore.subtract(edge2.midpoint, p.point))
+                                );
+                                A = pointCore.add(normalTowards(edge1, p.point, d), edge1.midpoint);
+                                B = pointCore.add(normalTowards(edge2, p.point, d), edge2.midpoint);
+                                C = pointCore.interpolate(A, B, 0.5);
+
+                                graphics.moveTo(edge1.midpoint.x, edge1.midpoint.y);
+                                graphics.lineStyle(1.1, colors['ROAD' + roads.road[edge1.index]]);
+
+                                var s = new Shape();
+                                s.steps = 10;
+                                s.moveTo(edge1.midpoint.x, edge1.midpoint.y);
+                                s.quadraticCurveTo(A.x, A.y, C.x, C.y);
+                                s.moveTo(C.x, C.y);
+                                drawPathForwards(graphics, s.points);
+                                
+                                var lastPoint = s.points[s.points.length - 1];
+                                
+                                s = new Shape();
+                                s.steps = 10;
+                                s.moveTo(lastPoint.x, lastPoint.y);
+                                s.quadraticCurveTo(B.x, B.y, edge2.midpoint.x, edge2.midpoint.y);
+                                graphics.lineStyle(1.1, colors['ROAD' + roads.road[edge2.index]]);
+                                drawPathForwards(graphics, s.points);
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Intersection or dead end: draw a road spline from
+                // each edge to the center
+                _(p.borders).each(function (edge1) {
+                    if (roads.road[edge1.index] > 0) {
+                        d = 0.25 * pointCore.distanceFromOrigin(pointCore.subtract(edge1.midpoint, p.point));
+                        A = pointCore.add(normalTowards(edge1, p.point, d), edge1.midpoint);
+                        
+                        graphics.moveTo(edge1.midpoint.x, edge1.midpoint.y);
+                        graphics.lineStyle(1.4, colors['ROAD' + roads.road[edge1.index]]);
+
+                        var s = new Shape();
+                        s.steps = 10;
+                        s.moveTo(edge1.midpoint.x, edge1.midpoint.y);
+                        s.quadraticCurveTo(A.x, A.y, p.point.x, p.point.y);
+                        drawPathForwards(graphics, s.points);
+                    }
+                });
+            }
+        }
+    });
+
+    context.root.addChild(graphics);
+    context.renderer.render(context.stage);
+};
+
+// Render the exterior of polygons: coastlines, lake shores,
+// rivers, lava fissures. We draw all of these after the polygons
+// so that polygons don't overwrite any edges.
+exports.renderEdges = function (context, colors, map, noisyEdges, lava, renderRivers) {
+    renderRivers = core.def(renderRivers, true);
+    var edge;
+
+    for (var centerIndex = 0; centerIndex < map.centers.length; centerIndex++) {
+        var p = map.centers[centerIndex];
+        for (var neighborIndex = 0; neighborIndex < p.neighbors.length; neighborIndex++) {
+            var r = p.neighbors[neighborIndex];
+            edge = map.lookupEdgeFromCenter(p, r);
+
+            if (core.isUndefinedOrNull(noisyEdges.path0[edge.index]) || core.isUndefinedOrNull(noisyEdges.path1[edge.index])) {
+                // It's at the edge of the map
+                continue;
+            }
+
+            var lineWidth = 0;
+            var lineColor = 0;
+
+            if (p.ocean !== r.ocean) {
+                // One side is ocean and the other side is land -- coastline
+                lineWidth = 2;
+                lineColor = colors.COAST;
+            } else if ((convert.intFromBoolean(p.water) > 0) !== (convert.intFromBoolean(r.water) > 0) && p.biome !== 'ICE' && r.biome !== 'ICE') {
+                // Lake boundary
+                lineWidth = 1;
+                lineColor = colors.LAKESHORE;
+            } else if (p.water || r.water) {
+                // Lake interior – we don't want to draw the rivers here
+                continue;
+            } else if (lava.lava[edge.index]) {
+                // Lava flow
+                lineWidth = 1;
+                lineColor = colors.LAVA;
+            } else if (edge.river > 0 && renderRivers) {
+                // River edge
+                lineWidth = Math.sqrt(edge.river);
+                lineColor = colors.RIVER;
+            } else {
+                continue;
+            }
+            
+            var graphics = new PIXI.Graphics();
+
+            var start = noisyEdges.path0[edge.index][0];
+            graphics.moveTo(start.x, start.y);
+
+            graphics.lineStyle(lineWidth, lineColor);
+
+            drawPathForwards(graphics, noisyEdges.path0[edge.index]);
+
+            context.root.addChild(graphics);
+            graphics = new PIXI.Graphics();
+            graphics.lineStyle(lineWidth, lineColor);
+
+            drawPathBackwards(graphics, noisyEdges.path1[edge.index]);
+
+            context.root.addChild(graphics);
+        }
+    }
+
+    context.renderer.render(context.stage);
+};
+
+exports.renderAllEdges = function (context, color, alpha, map, noisyEdges) {
+    var edge;
+
+    for (var centerIndex = 0; centerIndex < map.centers.length; centerIndex++) {
+        var p = map.centers[centerIndex];
+        for (var neighborIndex = 0; neighborIndex < p.neighbors.length; neighborIndex++) {
+            var r = p.neighbors[neighborIndex];
+            edge = map.lookupEdgeFromCenter(p, r);
+
+            if (core.isUndefinedOrNull(noisyEdges.path0[edge.index]) || core.isUndefinedOrNull(noisyEdges.path1[edge.index]) || p.water) {
+                // It's at the edge of the map or water
+                continue;
+            }
+
+            // edge
+            
+            var graphics = new PIXI.Graphics();
+            graphics.moveTo(noisyEdges.path0[edge.index][0].x, noisyEdges.path0[edge.index][0].y);
+            graphics.lineStyle(5, color, alpha);
+            drawPathForwards(graphics, noisyEdges.path0[edge.index]);
+
+            context.root.addChild(graphics);            
+            graphics = new PIXI.Graphics();
+            graphics.lineStyle(5, color, alpha);
+
+            drawPathBackwards(graphics, noisyEdges.path1[edge.index]);
+
+            context.root.addChild(graphics);
+        }
+    }
+    context.renderer.render(context.stage);
+};
+
+exports.addNoise = function (context) {
+    var filter = new NoiseFilter();
+    filter.noiseLevelRGBA = [0.05, 0.05, 0.05, 0.0];
+    context.stage.filters = [filter];
+    context.renderer.render(context.stage);
+};
+
+},{"./as3/conversion-core":8,"./as3/point-core":10,"./janicek/core":19,"./janicek/html-color":21,"lodash":1,"pixi-noise-filter":2,"pixi.js":3,"shape2d":4}],53:[function(require,module,exports){
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: true, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
+
+'use strict';
+
+var _ = require('lodash');
+var core = require('./janicek/core');
 
 module.exports = function () {
     var pub = {};
@@ -11551,7 +13479,12 @@ module.exports = function () {
 
     return pub;
 };
-},{"../janicek/core":9,"lodash":1}],43:[function(require,module,exports){
+},{"./janicek/core":19,"lodash":1}],54:[function(require,module,exports){
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: true, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
+
 'use strict';
 
 exports.displayColors = {
@@ -11591,7 +13524,34 @@ exports.elevationGradientColors = {
     GRADIENT_LOW: 0x008800,
     GRADIENT_HIGH: 0xffff00
 };
-},{}],44:[function(require,module,exports){
+},{}],55:[function(require,module,exports){
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: true, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
+
+'use strict';
+
+window.voronoiMap = {
+    islandShape: require('./island-shape'),
+    lava: require('./lava'),
+    map: require('./map'),
+    mapLands: require('./map-lands'),
+    noisyEdges: require('./noisy-edges'),
+    pointSelector: require('./point-selector'),
+    renderCore: require('./render-core'),
+    renderCanvas: require('./render-canvas'),
+    renderPixi: require('./render-pixi'),
+    roads: require('./roads'),
+    style: require('./style'),
+    watersheds: require('./watersheds')
+};
+},{"./island-shape":16,"./lava":25,"./map":27,"./map-lands":26,"./noisy-edges":47,"./point-selector":48,"./render-canvas":50,"./render-core":51,"./render-pixi":52,"./roads":53,"./style":54,"./watersheds":56}],56:[function(require,module,exports){
+/* jshint 
+    browser: true, jquery: true, node: true,
+    bitwise: true, camelcase: true, curly: true, eqeqeq: true, es3: true, evil: true, expr: true, forin: true, immed: true, indent: 4, latedef: true, newcap: true, noarg: true, noempty: true, nonew: true, quotmark: single, regexdash: true, strict: true, sub: true, trailing: true, undef: true, unused: vars, white: true
+*/
+
 'use strict';
 
 var _ = require('lodash');
@@ -11622,5 +13582,4 @@ module.exports = function () {
 
     return pub;
 };
-},{"lodash":1}]},{},[7])
-;
+},{"lodash":1}]},{},[55]);
